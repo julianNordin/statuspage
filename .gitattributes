@@ -1,0 +1,11 @@
+# The repository stores LF and checks out LF, on every platform. This matches
+# .editorconfig, so the formatter and git agree about what a line ending is.
+* text=auto eol=lf
+
+# Binary, and must not be touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
