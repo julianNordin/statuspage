@@ -42,7 +42,7 @@ Two other decisions are the substance:
 
 ## Roadmap
 
-- [ ] 01 — Repo skeleton, ground rules, tooling
+- [x] 01 — Repo skeleton, ground rules, tooling
 - [ ] 02 — Domain: state, hysteresis and uptime
 - [ ] 03 — Persistence: EF Core, SQL Server, the interval schema
 - [ ] 04 — Hand-written constraints, each with its proving test
