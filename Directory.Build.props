@@ -17,6 +17,13 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- IDE0005 (unused usings) only reports on build when the documentation file is
+         generated - see dotnet/roslyn#41640. The doc file is wanted anyway: OpenAPI reads
+         it later. CS1591 stays off, because "every public member needs a doc comment" is a
+         rule that produces ceremony rather than explanation. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!-- Deterministic output, so the same source produces the same bytes on a workstation
