@@ -16,6 +16,15 @@ namespace StatusPage.Domain;
 /// </param>
 public sealed record CheckPolicy(int ExpectedStatusCode, TimeSpan DegradedAbove)
 {
+    /// <summary>The latency budget. Never negative.</summary>
+    public TimeSpan DegradedAbove { get; } = NotNegative(DegradedAbove);
+
+    private static TimeSpan NotNegative(TimeSpan budget)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(budget, TimeSpan.Zero, nameof(DegradedAbove));
+        return budget;
+    }
+
     public ComponentState Observe(CheckOutcome outcome)
     {
         if (outcome.Kind != CheckOutcomeKind.Responded)

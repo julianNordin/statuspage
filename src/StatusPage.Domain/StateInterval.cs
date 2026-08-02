@@ -14,7 +14,21 @@ namespace StatusPage.Domain;
 /// <param name="EndedAt">When it left. Null while the interval is still the current one.</param>
 public sealed record StateInterval(ComponentState State, DateTimeOffset StartedAt, DateTimeOffset? EndedAt)
 {
+    /// <summary>When it left. Null while the interval is still the current one.</summary>
+    public DateTimeOffset? EndedAt { get; } = NotBefore(EndedAt, StartedAt);
+
     public bool IsOpen => EndedAt is null;
+
+    private static DateTimeOffset? NotBefore(DateTimeOffset? endedAt, DateTimeOffset startedAt)
+    {
+        if (endedAt is { } end && end < startedAt)
+        {
+            throw new ArgumentException(
+                $"An interval cannot end ({end:O}) before it started ({startedAt:O}).", nameof(endedAt));
+        }
+
+        return endedAt;
+    }
 
     /// <summary>
     /// The part of this interval that falls inside <paramref name="window"/>. An open interval

@@ -18,6 +18,21 @@ namespace StatusPage.Domain;
 /// </param>
 public sealed record Hysteresis(int FailuresToOpen, int SuccessesToClose)
 {
+    /// <summary>Consecutive worse observations required to commit. At least one.</summary>
+    public int FailuresToOpen { get; } = AtLeastOne(FailuresToOpen, nameof(FailuresToOpen));
+
+    /// <summary>Consecutive better observations required to commit. At least one.</summary>
+    public int SuccessesToClose { get; } = AtLeastOne(SuccessesToClose, nameof(SuccessesToClose));
+
+    private static int AtLeastOne(int value, string name)
+    {
+        // A threshold of zero commits on an observation that has not happened, so the state
+        // machine would never leave whatever it was first told. That is a policy which reports
+        // nothing, and it is worth refusing at construction rather than debugging later.
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 1, name);
+        return value;
+    }
+
     public HysteresisState Advance(HysteresisState current, ComponentState observed)
     {
         // A component nobody has checked yet has no state to defend. Waiting three checks
