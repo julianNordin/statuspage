@@ -44,7 +44,7 @@ Two other decisions are the substance:
 
 - [x] 01 — Repo skeleton, ground rules, tooling
 - [x] 02 — Domain: state, hysteresis and uptime
-- [ ] 03 — Persistence: EF Core, SQL Server, the interval schema
+- [x] 03 — Persistence: EF Core, SQL Server, the interval schema
 - [ ] 04 — Hand-written constraints, each with its proving test
 - [ ] 05 — The API surface: components and reads
 - [ ] 06 — Authentication: seeded operators, JWT, no sign-up
