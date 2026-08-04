@@ -7,7 +7,11 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- InvariantGlobalization is deliberately NOT set. It trims ICU out of the container,
+         which is tempting, and Microsoft.Data.SqlClient refuses to start without it:
+         "Globalization Invariant Mode is not supported." Collation is a globalization
+         concern, so a SQL Server client needs the real tables. -->
   </PropertyGroup>
 
   <!-- A warning nobody is forced to read is a warning nobody reads. The build fails on them
