@@ -68,6 +68,34 @@ public class ConstraintTests(SqlServerFixture fixture)
     }
 
     [Fact]
+    public async Task The_open_interval_index_refuses_a_second_one_even_with_the_trigger_disabled()
+    {
+        // Dropping the filtered unique index on its own broke no test, because the overlap
+        // trigger catches the same insert first: two open intervals both run to the end of
+        // time, so they overlap. The index would have been unproven — present, believed, and
+        // never actually exercised. This disables the trigger so the index is the only thing
+        // left to refuse the row.
+        var component = await SeedComponentAsync();
+        await AddAsync(Interval(component.Id, 0, null));
+
+        await using var db = fixture.NewContext();
+        await db.Database.ExecuteSqlRawAsync(
+            "DISABLE TRIGGER tr_component_intervals_no_overlap ON component_intervals;",
+            TestContext.Current.CancellationToken);
+        try
+        {
+            await Assert.ThrowsAsync<DbUpdateException>(
+                () => AddAsync(Interval(component.Id, 5, null)));
+        }
+        finally
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ENABLE TRIGGER tr_component_intervals_no_overlap ON component_intervals;",
+                TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
     public async Task Two_different_components_may_each_have_their_own_open_interval()
     {
         var first = await SeedComponentAsync();
