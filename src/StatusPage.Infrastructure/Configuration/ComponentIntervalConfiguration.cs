@@ -8,7 +8,12 @@ internal sealed class ComponentIntervalConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<ComponentInterval> builder)
     {
-        builder.ToTable("component_intervals");
+        // The overlap rule is a trigger (SQL Server has no exclusion constraint), and EF has
+        // to be told so. Its default INSERT uses an OUTPUT clause to read identity values
+        // back, which SQL Server forbids on a table with enabled triggers; declaring the
+        // trigger makes EF fall back to a slower technique that works. Without this line
+        // every write to this table fails, including the ones the trigger would have allowed.
+        builder.ToTable("component_intervals", t => t.HasTrigger("tr_component_intervals_no_overlap"));
 
         builder.HasKey(i => i.Id);
 
