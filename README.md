@@ -46,7 +46,7 @@ Two other decisions are the substance:
 - [x] 02 — Domain: state, hysteresis and uptime
 - [x] 03 — Persistence: EF Core, SQL Server, the interval schema
 - [x] 04 — Hand-written constraints, each with its proving test
-- [ ] 05 — The API surface: components and reads
+- [x] 05 — The API surface: components and reads
 - [ ] 06 — Authentication: seeded operators, JWT, no sign-up
 - [ ] 07 — SSRF: what a monitored URL may be
 - [ ] 08 — Incidents and maintenance windows
