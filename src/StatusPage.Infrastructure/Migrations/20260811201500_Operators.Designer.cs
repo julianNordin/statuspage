@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StatusPage.Infrastructure;
 
@@ -11,9 +12,11 @@ using StatusPage.Infrastructure;
 namespace StatusPage.Infrastructure.Migrations
 {
     [DbContext(typeof(StatusPageDbContext))]
-    partial class StatusPageDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811201500_Operators")]
+    partial class Operators
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
