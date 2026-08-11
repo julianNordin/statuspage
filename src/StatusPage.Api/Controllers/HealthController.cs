@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace StatusPage.Api.Controllers;
@@ -10,6 +11,7 @@ namespace StatusPage.Api.Controllers;
 /// needs from it is whether to keep sending traffic.
 /// </para>
 /// </summary>
+[AllowAnonymous]
 [ApiController]
 [Route("health")]
 [Produces("application/json")]

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StatusPage.Api.Contracts;
 using StatusPage.Domain;
@@ -14,6 +15,7 @@ namespace StatusPage.Api.Controllers;
 /// waiting for the next snapshot.
 /// </para>
 /// </summary>
+[AllowAnonymous]
 [ApiController]
 [Route("api/status")]
 [Produces("application/json")]
