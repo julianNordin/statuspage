@@ -47,7 +47,7 @@ Two other decisions are the substance:
 - [x] 03 — Persistence: EF Core, SQL Server, the interval schema
 - [x] 04 — Hand-written constraints, each with its proving test
 - [x] 05 — The API surface: components and reads
-- [ ] 06 — Authentication: seeded operators, JWT, no sign-up
+- [x] 06 — Authentication: seeded operators, JWT, no sign-up
 - [ ] 07 — SSRF: what a monitored URL may be
 - [ ] 08 — Incidents and maintenance windows
 - [ ] 09 — The checker: a worker that runs and exits
