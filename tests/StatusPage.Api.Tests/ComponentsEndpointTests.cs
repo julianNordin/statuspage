@@ -18,7 +18,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [Fact]
     public async Task A_created_component_comes_back_from_the_location_it_reports()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
         var request = NewRequest(UniqueSlug());
 
         var created = await client.PostAsJsonAsync(
@@ -43,7 +43,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [Fact]
     public async Task A_slug_that_is_already_taken_is_a_conflict_and_says_so_as_problem_details()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
         var request = NewRequest(UniqueSlug());
 
         await client.PostAsJsonAsync("/api/components", request, TestContext.Current.CancellationToken);
@@ -57,7 +57,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [Fact]
     public async Task A_component_that_does_not_exist_is_a_404()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
 
         var response = await client.GetAsync(
             "/api/components/nothing-here", TestContext.Current.CancellationToken);
@@ -68,7 +68,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [Fact]
     public async Task A_slug_that_is_not_a_slug_is_refused_before_it_reaches_the_database()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
 
         var response = await client.PostAsJsonAsync(
             "/api/components",
@@ -84,7 +84,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [InlineData(101)]
     public async Task A_threshold_outside_the_allowed_range_is_refused(int failuresToOpen)
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
         var request = NewRequest(UniqueSlug()) with { FailuresToOpen = failuresToOpen };
 
         var response = await client.PostAsJsonAsync(
@@ -96,7 +96,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
     [Fact]
     public async Task A_component_can_be_updated_and_then_deleted()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync(TestContext.Current.CancellationToken);
 
         var created = await client.PostAsJsonAsync(
             "/api/components", NewRequest(UniqueSlug()), TestContext.Current.CancellationToken);
