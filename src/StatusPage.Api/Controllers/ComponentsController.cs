@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using StatusPage.Api.Contracts;
+using StatusPage.Domain;
 using StatusPage.Domain.Model;
 using StatusPage.Infrastructure.Queries;
 
@@ -43,6 +44,14 @@ public sealed class ComponentsController(ComponentQueries components, TimeProvid
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        if (!TargetUrl.TryParse(request.TargetUrl, out _, out var whyNot))
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "That target URL is not allowed.",
+                detail: whyNot);
+        }
 
         // Checked here for a good error, and by a unique index for the truth. Two requests
         // racing past this check land on the index, which is the one that cannot be raced.
@@ -88,6 +97,16 @@ public sealed class ComponentsController(ComponentQueries components, TimeProvid
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // The create path and the update path are two doors into the same column. A guard
+        // on one of them is not a guard, and there is a test that removes this one.
+        if (!TargetUrl.TryParse(request.TargetUrl, out _, out var whyNot))
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "That target URL is not allowed.",
+                detail: whyNot);
+        }
 
         var component = await components.FindAsync(id, cancellationToken).ConfigureAwait(false);
         if (component is null)
