@@ -48,7 +48,7 @@ Two other decisions are the substance:
 - [x] 04 — Hand-written constraints, each with its proving test
 - [x] 05 — The API surface: components and reads
 - [x] 06 — Authentication: seeded operators, JWT, no sign-up
-- [ ] 07 — SSRF: what a monitored URL may be
+- [x] 07 — SSRF: what a monitored URL may be
 - [ ] 08 — Incidents and maintenance windows
 - [ ] 09 — The checker: a worker that runs and exits
 - [ ] 10 — The read model: config in, snapshot out
