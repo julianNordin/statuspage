@@ -73,6 +73,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddScoped<ComponentQueries>();
 builder.Services.AddScoped<StatusQueries>();
+builder.Services.AddScoped<IncidentQueries>();
 
 // Injected rather than reached for, so every test can decide what "now" is and no rule in
 // this codebase is written against the wall clock.
