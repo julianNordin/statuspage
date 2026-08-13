@@ -18,6 +18,12 @@ public class StatusPageDbContext(DbContextOptions<StatusPageDbContext> options)
 
     public DbSet<ComponentInterval> Intervals => Set<ComponentInterval>();
 
+    public DbSet<Incident> Incidents => Set<Incident>();
+
+    public DbSet<IncidentUpdate> IncidentUpdates => Set<IncidentUpdate>();
+
+    public DbSet<MaintenanceWindow> MaintenanceWindows => Set<MaintenanceWindow>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);

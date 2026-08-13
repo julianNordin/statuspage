@@ -37,6 +37,10 @@ public class Component
 
     public ICollection<ComponentInterval> Intervals { get; init; } = [];
 
+    public ICollection<Incident> Incidents { get; init; } = [];
+
+    public ICollection<MaintenanceWindow> MaintenanceWindows { get; init; } = [];
+
     /// <summary>The classification rule this component's checks are judged by.</summary>
     public CheckPolicy CheckPolicy() =>
         new(ExpectedStatusCode, TimeSpan.FromMilliseconds(DegradedAboveMs));
