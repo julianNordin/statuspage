@@ -55,13 +55,47 @@ public sealed class StatusQueries(StatusPageDbContext db)
             .GroupBy(i => i.ComponentId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // Announced maintenance comes out of the denominator, so it has to be loaded with
+        // the same window filter the intervals use. A window is relevant if it starts before
+        // the reporting window ends and ends after it starts.
+        var maintenance = await db.MaintenanceWindows
+            .Where(m => m.StartsAt < window.End && m.EndsAt > window.Start)
+            .Select(m => new
+            {
+                m.StartsAt,
+                m.EndsAt,
+                ComponentIds = m.AffectedComponents.Select(c => c.Id).ToList(),
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var maintenanceByComponent = new Dictionary<Guid, List<TimeRange>>();
+        foreach (var entry in maintenance)
+        {
+            var range = new TimeRange(entry.StartsAt, entry.EndsAt);
+            foreach (var componentId in entry.ComponentIds)
+            {
+                if (!maintenanceByComponent.TryGetValue(componentId, out var ranges))
+                {
+                    ranges = [];
+                    maintenanceByComponent[componentId] = ranges;
+                }
+
+                ranges.Add(range);
+            }
+        }
+
         var results = new List<ComponentStatus>(components.Count);
 
         foreach (var component in components)
         {
             var own = byComponent.TryGetValue(component.Id, out var rows) ? rows : [];
             var current = own.Find(i => i.EndedAt is null);
-            var report = Uptime.Measure(own.Select(i => i.ToDomain()), [], window, asOf);
+            var excluded = maintenanceByComponent.TryGetValue(component.Id, out var windows)
+                ? windows
+                : [];
+
+            var report = Uptime.Measure(own.Select(i => i.ToDomain()), excluded, window, asOf);
 
             results.Add(new ComponentStatus(
                 component.Slug,
