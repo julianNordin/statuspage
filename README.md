@@ -49,7 +49,7 @@ Two other decisions are the substance:
 - [x] 05 — The API surface: components and reads
 - [x] 06 — Authentication: seeded operators, JWT, no sign-up
 - [x] 07 — SSRF: what a monitored URL may be
-- [ ] 08 — Incidents and maintenance windows
+- [x] 08 — Incidents and maintenance windows
 - [ ] 09 — The checker: a worker that runs and exits
 - [ ] 10 — The read model: config in, snapshot out
 - [ ] 11 — Angular: shell, tokens, and the public status page
