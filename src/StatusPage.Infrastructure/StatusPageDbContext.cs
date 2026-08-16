@@ -24,6 +24,8 @@ public class StatusPageDbContext(DbContextOptions<StatusPageDbContext> options)
 
     public DbSet<MaintenanceWindow> MaintenanceWindows => Set<MaintenanceWindow>();
 
+    public DbSet<CheckerState> CheckerState => Set<CheckerState>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
