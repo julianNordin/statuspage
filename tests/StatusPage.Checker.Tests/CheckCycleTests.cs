@@ -270,6 +270,39 @@ public class CheckCycleTests(CheckerFixture fixture)
     }
 
     [Fact]
+    public async Task Going_down_a_second_time_while_the_first_incident_is_still_open_adds_no_second_one()
+    {
+        // The already-open guard is only reachable on a transition *to* Down, and a component
+        // that simply stays down never transitions again — so "still down, no new incident"
+        // never touches it. Removing the guard broke no test until this one existed. A
+        // component that flaps down, up, and down again does reach it.
+        var component = await SeedAsync(failuresToOpen: 2, successesToClose: 2);
+        await RunAsync(new ScriptedProbe { Default = Healthy });
+
+        async Task DriveAsync(CheckOutcome outcome, int times)
+        {
+            for (var i = 0; i < times; i++)
+            {
+                _clock.Advance(TimeSpan.FromMinutes(10));
+                await RunAsync(new ScriptedProbe { Default = outcome });
+            }
+        }
+
+        await DriveAsync(Broken, 2);
+        await DriveAsync(Healthy, 2);
+        await DriveAsync(Broken, 2);
+
+        await using var db = fixture.NewContext();
+        var incidents = await db.Incidents
+            .Where(x => x.AffectedComponents.Any(c => c.Id == component.Id))
+            .CountAsync(TestContext.Current.CancellationToken);
+
+        // The first incident is still open because nobody resolved it, and an unresolved
+        // incident already says what the second one would.
+        Assert.Equal(1, incidents);
+    }
+
+    [Fact]
     public async Task A_slow_but_correct_response_becomes_degraded_rather_than_down()
     {
         var component = await SeedAsync(failuresToOpen: 2);
