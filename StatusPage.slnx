@@ -1,11 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/StatusPage.Api/StatusPage.Api.csproj" />
+    <Project Path="src/StatusPage.Checker/StatusPage.Checker.csproj" />
     <Project Path="src/StatusPage.Domain/StatusPage.Domain.csproj" />
     <Project Path="src/StatusPage.Infrastructure/StatusPage.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/StatusPage.Api.Tests/StatusPage.Api.Tests.csproj" />
+    <Project Path="tests/StatusPage.Checker.Tests/StatusPage.Checker.Tests.csproj" />
     <Project Path="tests/StatusPage.Domain.Tests/StatusPage.Domain.Tests.csproj" />
     <Project Path="tests/StatusPage.Infrastructure.Tests/StatusPage.Infrastructure.Tests.csproj" />
   </Folder>
