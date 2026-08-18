@@ -47,7 +47,11 @@ public sealed class StatusQueries(StatusPageDbContext db)
 
         var intervals = await db.Intervals
             .Where(i => ids.Contains(i.ComponentId))
-            .Where(i => i.StartedAt < window.End && (i.EndedAt == null || i.EndedAt > window.Start))
+            // An open interval is always relevant, whatever the window says. One that started
+            // at this very instant contributes no duration to the uptime sum — correctly — but
+            // it is still what the component is doing now, and a strict "started before the
+            // window ends" drops it and reports Unknown.
+            .Where(i => i.EndedAt == null || (i.StartedAt < window.End && i.EndedAt > window.Start))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

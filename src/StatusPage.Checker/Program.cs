@@ -5,6 +5,7 @@ using StatusPage.Checker;
 using StatusPage.Checker.Probing;
 using StatusPage.Infrastructure;
 using StatusPage.Infrastructure.Checks;
+using StatusPage.Infrastructure.ReadModel;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -34,6 +35,7 @@ builder.Services
     .ConfigurePrimaryHttpMessageHandler(() =>
         GuardedConnect.CreateHandler(TimeSpan.FromSeconds(5)));
 
+builder.Services.AddReadModel(builder.Configuration);
 builder.Services.AddScoped<CheckCycle>();
 
 var host = builder.Build();

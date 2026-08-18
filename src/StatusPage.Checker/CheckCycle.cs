@@ -3,27 +3,36 @@ using StatusPage.Checker.Probing;
 using StatusPage.Domain;
 using StatusPage.Domain.Model;
 using StatusPage.Infrastructure;
+using StatusPage.Infrastructure.ReadModel;
 
 namespace StatusPage.Checker;
 
 /// <summary>What one pass over every component came to.</summary>
 /// <param name="Probed">How many components were checked.</param>
-/// <param name="Transitions">How many changed state, and so wrote a row.</param>
+/// <param name="Transitions">How many changed state, and so wrote to the database.</param>
 /// <param name="IncidentsOpened">How many outages the checker declared by itself.</param>
-public sealed record CycleResult(int Probed, int Transitions, int IncidentsOpened);
+/// <param name="TouchedDatabase">
+/// Whether this cycle opened a database connection at all. False on a quiet cycle, which is
+/// almost all of them, and the whole reason the read model exists.
+/// </param>
+public sealed record CycleResult(int Probed, int Transitions, int IncidentsOpened, bool TouchedDatabase);
 
 /// <summary>
-/// One pass: probe every enabled component, decide whether anything actually changed, and
-/// write only what did.
+/// One pass: read the configuration from a file, probe every component, and write to the
+/// database only if something actually changed.
 /// <para>
-/// Writing only transitions is the decision this whole project is shaped around. A row per
-/// check would be roughly 130,000 rows per component per quarter and would keep a serverless
-/// database awake permanently. A row per <em>change</em> is a handful, and the database
-/// sleeps in between.
+/// The file is not a cache. Azure SQL's free offer meters <em>awake</em> time and auto-pause
+/// needs sixty unbroken idle minutes, so a checker that read its configuration from the
+/// database every ten minutes would keep it awake permanently — roughly 1.3 million vCore
+/// seconds a month against an allowance of 100,000. Reading configuration from blob storage
+/// makes the database's only visitors an operator and a genuine state change, and both are
+/// rare enough that it sleeps.
 /// </para>
 /// </summary>
 public sealed partial class CheckCycle(
     StatusPageDbContext db,
+    IReadModelStore store,
+    ReadModelProjection projection,
     ITargetProbe probe,
     TimeProvider clock,
     ILogger<CheckCycle> logger)
@@ -33,52 +42,83 @@ public sealed partial class CheckCycle(
 
     public async Task<CycleResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var components = await db.Components
-            .Where(c => c.Enabled)
-            .OrderBy(c => c.Position)
-            .ToListAsync(cancellationToken)
+        var now = clock.GetUtcNow();
+
+        var config = await store.ReadAsync<CheckerConfig>(ReadModelDocuments.Config, cancellationToken)
             .ConfigureAwait(false);
 
-        if (components.Count == 0)
+        if (config is null || config.Components.Count == 0)
         {
+            // No configuration written yet. Not an error: it is the state a deployment starts
+            // in, before an operator has added anything.
             NothingToCheck(logger);
-            return new CycleResult(0, 0, 0);
+            return new CycleResult(0, 0, 0, false);
         }
 
-        // Probing is I/O and runs concurrently; persisting uses one DbContext and runs
-        // afterwards, on one thread. Interleaving the two is the shortest route to a
-        // second-operation-on-this-context crash under load.
-        var observations = await ProbeAllAsync(components, cancellationToken).ConfigureAwait(false);
+        var memory = await store.ReadAsync<CheckerMemory>(ReadModelDocuments.CheckerState, cancellationToken)
+            .ConfigureAwait(false) ?? CheckerMemory.Empty;
 
-        var transitions = 0;
-        var opened = 0;
+        var observations = await ProbeAllAsync(config.Components, cancellationToken).ConfigureAwait(false);
+
+        var next = new Dictionary<string, ComponentMemory>(StringComparer.Ordinal);
+        var transitions = new List<(CheckerComponent Component, ComponentState To)>();
 
         foreach (var (component, outcome) in observations)
         {
-            var applied = await ApplyAsync(component, outcome, cancellationToken).ConfigureAwait(false);
+            var before = memory.Components.TryGetValue(component.Slug, out var remembered)
+                ? remembered
+                : new ComponentMemory(ComponentState.Unknown, ComponentState.Unknown, 0, null, null, null);
 
-            if (applied.Changed)
+            var observed = component.CheckPolicy().Observe(outcome);
+            var after = component.Hysteresis().Advance(before.ToHysteresisState(), observed);
+            var changed = after.Committed != before.Committed;
+
+            if (changed)
             {
-                transitions++;
+                transitions.Add((component, after.Committed));
+                StateChanged(logger, component.Slug, before.Committed.ToString(), after.Committed.ToString());
             }
 
-            if (applied.IncidentOpened)
-            {
-                opened++;
-            }
+            next[component.Slug] = new ComponentMemory(
+                after.Committed,
+                after.Candidate,
+                after.ConsecutiveObservations,
+                changed ? now : before.Since,
+                now,
+                (int)Math.Min(outcome.Latency.TotalMilliseconds, int.MaxValue));
         }
 
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await store.WriteAsync(
+            ReadModelDocuments.CheckerState,
+            new CheckerMemory(now, next),
+            cancellationToken).ConfigureAwait(false);
 
-        CycleFinished(logger, components.Count, transitions, opened);
-        return new CycleResult(components.Count, transitions, opened);
+        var opened = 0;
+
+        if (transitions.Count > 0)
+        {
+            // Something actually changed, so the log has to hear about it. This is the only
+            // path that opens a database connection.
+            opened = await RecordAsync(transitions, now, cancellationToken).ConfigureAwait(false);
+            await projection.WriteSnapshotAsync(now, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            // Nothing changed. Refresh the snapshot from what is already in it, so the page
+            // still shows a recent timestamp and current latencies without anybody reading
+            // the database.
+            await RefreshSnapshotAsync(now, next, cancellationToken).ConfigureAwait(false);
+        }
+
+        CycleFinished(logger, config.Components.Count, transitions.Count, opened, transitions.Count > 0);
+        return new CycleResult(config.Components.Count, transitions.Count, opened, transitions.Count > 0);
     }
 
-    private async Task<List<(Component Component, CheckOutcome Outcome)>> ProbeAllAsync(
-        List<Component> components,
+    private async Task<List<(CheckerComponent Component, CheckOutcome Outcome)>> ProbeAllAsync(
+        IReadOnlyList<CheckerComponent> components,
         CancellationToken cancellationToken)
     {
-        var results = new (Component, CheckOutcome)[components.Count];
+        var results = new (CheckerComponent, CheckOutcome)[components.Count];
         using var gate = new SemaphoreSlim(Parallelism);
 
         var probes = components.Select(async (component, index) =>
@@ -86,7 +126,7 @@ public sealed partial class CheckCycle(
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var outcome = await probe.ProbeAsync(component, cancellationToken).ConfigureAwait(false);
+                var outcome = await probe.ProbeAsync(component.TargetUrl, cancellationToken).ConfigureAwait(false);
                 results[index] = (component, outcome);
             }
             finally
@@ -99,80 +139,52 @@ public sealed partial class CheckCycle(
         return [.. results];
     }
 
-    private async Task<(bool Changed, bool IncidentOpened)> ApplyAsync(
-        Component component,
-        CheckOutcome outcome,
-        CancellationToken cancellationToken)
-    {
-        var now = clock.GetUtcNow();
-        var observed = component.CheckPolicy().Observe(outcome);
-
-        var state = await db.CheckerState
-            .SingleOrDefaultAsync(s => s.ComponentId == component.Id, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (state is null)
-        {
-            state = new CheckerState { ComponentId = component.Id };
-            db.CheckerState.Add(state);
-        }
-
-        var open = await db.Intervals
-            .Where(i => i.ComponentId == component.Id && i.EndedAt == null)
-            .SingleOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var committed = open?.State ?? ComponentState.Unknown;
-        var before = new HysteresisState(committed, state.Candidate, state.ConsecutiveObservations);
-        var after = component.Hysteresis().Advance(before, observed);
-
-        state.Candidate = after.Candidate;
-        state.ConsecutiveObservations = after.ConsecutiveObservations;
-        state.LastCheckedAt = now;
-        state.LastLatencyMs = (int)Math.Min(outcome.Latency.TotalMilliseconds, int.MaxValue);
-
-        if (after.Committed == committed)
-        {
-            return (false, false);
-        }
-
-        // The old interval ends exactly where the new one begins. Ranges are half-open, so
-        // the shared instant belongs to the new one and nothing is counted twice.
-        if (open is not null)
-        {
-            open.EndedAt = now;
-        }
-
-        db.Intervals.Add(new ComponentInterval
-        {
-            ComponentId = component.Id,
-            State = after.Committed,
-            StartedAt = now,
-            EndedAt = null,
-        });
-
-        StateChanged(logger, component.Slug, committed.ToString(), after.Committed.ToString());
-
-        var incidentOpened = await MaybeOpenIncidentAsync(component, after.Committed, now, cancellationToken)
-            .ConfigureAwait(false);
-
-        return (true, incidentOpened);
-    }
-
-    private async Task<bool> MaybeOpenIncidentAsync(
-        Component component,
-        ComponentState committed,
+    /// <summary>Writes the transitions to the log, and opens incidents where they are owed.</summary>
+    private async Task<int> RecordAsync(
+        List<(CheckerComponent Component, ComponentState To)> transitions,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        if (committed != ComponentState.Down)
+        var opened = 0;
+
+        foreach (var (component, to) in transitions)
         {
-            // Coming back up does not resolve anything. A person decides when an incident is
-            // over, because "it answers again" and "it is fixed" are different claims and
-            // only one of them is worth telling a reader.
-            return false;
+            var open = await db.Intervals
+                .Where(i => i.ComponentId == component.Id && i.EndedAt == null)
+                .SingleOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            // The old interval ends exactly where the new one begins. Ranges are half-open,
+            // so the shared instant belongs to the new one and nothing is counted twice.
+            if (open is not null)
+            {
+                open.EndedAt = now;
+            }
+
+            db.Intervals.Add(new ComponentInterval
+            {
+                ComponentId = component.Id,
+                State = to,
+                StartedAt = now,
+                EndedAt = null,
+            });
+
+            if (to == ComponentState.Down &&
+                await OpenIncidentAsync(component, now, cancellationToken).ConfigureAwait(false))
+            {
+                opened++;
+            }
         }
 
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return opened;
+    }
+
+    private async Task<bool> OpenIncidentAsync(
+        CheckerComponent component,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
         var alreadyOpen = await db.Incidents
             .Where(i => i.Status != IncidentStatus.Resolved)
             .AnyAsync(i => i.AffectedComponents.Any(c => c.Id == component.Id), cancellationToken)
@@ -182,6 +194,10 @@ public sealed partial class CheckCycle(
         {
             return false;
         }
+
+        var entity = await db.Components
+            .SingleAsync(c => c.Id == component.Id, cancellationToken)
+            .ConfigureAwait(false);
 
         var incident = new Incident
         {
@@ -193,7 +209,7 @@ public sealed partial class CheckCycle(
             OpenedAutomatically = true,
         };
 
-        incident.AffectedComponents.Add(component);
+        incident.AffectedComponents.Add(entity);
         incident.Updates.Add(new IncidentUpdate
         {
             Body = "Automated checks stopped getting a healthy response from " + component.Name + ".",
@@ -206,12 +222,45 @@ public sealed partial class CheckCycle(
         return true;
     }
 
-    [LoggerMessage(EventId = 3000, Level = LogLevel.Debug, Message = "No enabled components to check")]
+    /// <summary>
+    /// Updates the snapshot in place from the checker's own memory. No database: state has not
+    /// changed, so the interval history behind the uptime bars has not changed either, and the
+    /// only things worth refreshing are the timestamp and the latencies.
+    /// </summary>
+    private async Task RefreshSnapshotAsync(
+        DateTimeOffset now,
+        Dictionary<string, ComponentMemory> memory,
+        CancellationToken cancellationToken)
+    {
+        var previous = await store.ReadAsync<StatusSnapshot>(ReadModelDocuments.Status, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (previous is null)
+        {
+            // Nothing to patch. The next transition rebuilds it from the log, and until then
+            // the page correctly shows that nothing is known.
+            return;
+        }
+
+        var components = previous.Components
+            .Select(c => memory.TryGetValue(c.Slug, out var m)
+                ? c with { State = m.Committed, Since = m.Since ?? c.Since, LastLatencyMs = m.LastLatencyMs }
+                : c)
+            .ToList();
+
+        await store.WriteAsync(
+            ReadModelDocuments.Status,
+            previous with { GeneratedAt = now, Components = components },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    [LoggerMessage(EventId = 3000, Level = LogLevel.Debug, Message = "No configuration to check")]
     private static partial void NothingToCheck(ILogger logger);
 
     [LoggerMessage(EventId = 3001, Level = LogLevel.Information,
-        Message = "Checked {Probed} components: {Transitions} transitions, {Opened} incidents opened")]
-    private static partial void CycleFinished(ILogger logger, int probed, int transitions, int opened);
+        Message = "Checked {Probed}: {Transitions} transitions, {Opened} incidents, database touched: {Touched}")]
+    private static partial void CycleFinished(
+        ILogger logger, int probed, int transitions, int opened, bool touched);
 
     [LoggerMessage(EventId = 3002, Level = LogLevel.Warning, Message = "{Slug} moved from {From} to {To}")]
     private static partial void StateChanged(ILogger logger, string slug, string from, string to);

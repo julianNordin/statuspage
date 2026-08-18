@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using StatusPage.Domain;
-using StatusPage.Domain.Model;
 using StatusPage.Infrastructure.Checks;
 
 namespace StatusPage.Checker.Probing;
@@ -14,9 +13,9 @@ public sealed class HttpTargetProbe(HttpClient client) : ITargetProbe
     /// <summary>How long a target gets to answer before it counts as down.</summary>
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
-    public async Task<CheckOutcome> ProbeAsync(Component component, CancellationToken cancellationToken)
+    public async Task<CheckOutcome> ProbeAsync(string targetUrl, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(component);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetUrl);
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(Timeout);
@@ -25,7 +24,7 @@ public sealed class HttpTargetProbe(HttpClient client) : ITargetProbe
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, component.TargetUrl);
+            using var request = new HttpRequestMessage(HttpMethod.Get, targetUrl);
 
             // HEAD would be cheaper and is answered wrongly by enough servers that a status
             // page built on it reports outages nobody else can see.

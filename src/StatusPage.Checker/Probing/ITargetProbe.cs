@@ -1,17 +1,17 @@
 using StatusPage.Domain;
-using StatusPage.Domain.Model;
 
 namespace StatusPage.Checker.Probing;
 
 /// <summary>
-/// Makes one request to a component's target and reports what happened.
+/// Makes one request to a target and reports what happened.
 /// <para>
-/// An interface so the cycle around it can be tested without a network. Everything
-/// interesting about the checker — hysteresis, transitions, opening an incident — is a
-/// function of outcomes, and outcomes are far easier to arrange than servers.
+/// It takes a URL rather than a component, because that is all it needs and because the cycle
+/// now works from the configuration document rather than from database entities. An interface
+/// so the cycle around it can be tested without a network: everything interesting about a
+/// checker is a function of outcomes, and outcomes are easier to arrange than servers.
 /// </para>
 /// </summary>
 public interface ITargetProbe
 {
-    Task<CheckOutcome> ProbeAsync(Component component, CancellationToken cancellationToken);
+    Task<CheckOutcome> ProbeAsync(string targetUrl, CancellationToken cancellationToken);
 }
