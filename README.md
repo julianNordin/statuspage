@@ -51,7 +51,7 @@ Two other decisions are the substance:
 - [x] 07 — SSRF: what a monitored URL may be
 - [x] 08 — Incidents and maintenance windows
 - [x] 09 — The checker: a worker that runs and exits
-- [ ] 10 — The read model: config in, snapshot out
+- [x] 10 — The read model: config in, snapshot out
 - [ ] 11 — Angular: shell, tokens, and the public status page
 - [ ] 12 — Angular: the operator console
 - [ ] 13 — Containers: two images, one Compose
