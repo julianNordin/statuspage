@@ -1,7 +1,10 @@
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using StatusPage.Infrastructure;
+using StatusPage.Infrastructure.ReadModel;
 using Testcontainers.MsSql;
 
 namespace StatusPage.Api.Tests;
@@ -44,7 +47,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Operators:0:DisplayName", "Sam Operator");
         builder.UseSetting("Operators:0:Password", OperatorPassword);
         builder.UseEnvironment("Testing");
+
+        // The API publishes config.json when the catalogue changes. These tests care that it
+        // publishes, not where to — a real blob client here would mean every API test needed
+        // a storage emulator to assert something about HTTP.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IReadModelStore>();
+            services.AddSingleton<IReadModelStore>(ReadModel);
+        });
     }
+
+    /// <summary>The read model the API writes into, so a test can read it back.</summary>
+    public InMemoryReadModelStore ReadModel { get; } = new();
 
     /// <summary>The seeded operator every test signs in as.</summary>
     public const string OperatorEmail = "operator@example.test";

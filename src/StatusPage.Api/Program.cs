@@ -9,6 +9,7 @@ using Scalar.AspNetCore;
 using StatusPage.Api.Infrastructure;
 using StatusPage.Infrastructure;
 using StatusPage.Infrastructure.Queries;
+using StatusPage.Infrastructure.ReadModel;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +75,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<ComponentQueries>();
 builder.Services.AddScoped<StatusQueries>();
 builder.Services.AddScoped<IncidentQueries>();
+builder.Services.AddReadModel(builder.Configuration);
 
 // Injected rather than reached for, so every test can decide what "now" is and no rule in
 // this codebase is written against the wall clock.

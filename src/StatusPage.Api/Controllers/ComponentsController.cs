@@ -3,6 +3,7 @@ using StatusPage.Api.Contracts;
 using StatusPage.Domain;
 using StatusPage.Domain.Model;
 using StatusPage.Infrastructure.Queries;
+using StatusPage.Infrastructure.ReadModel;
 
 namespace StatusPage.Api.Controllers;
 
@@ -10,7 +11,10 @@ namespace StatusPage.Api.Controllers;
 [ApiController]
 [Route("api/components")]
 [Produces("application/json")]
-public sealed class ComponentsController(ComponentQueries components, TimeProvider clock) : ControllerBase
+public sealed class ComponentsController(
+    ComponentQueries components,
+    ReadModelProjection projection,
+    TimeProvider clock) : ControllerBase
 {
     private static ComponentResponse ToResponse(Component c) => new(
         c.Id, c.Name, c.Slug, c.TargetUrl, c.ExpectedStatusCode, c.DegradedAboveMs,
@@ -84,6 +88,12 @@ public sealed class ComponentsController(ComponentQueries components, TimeProvid
 
         await components.AddAsync(component, cancellationToken).ConfigureAwait(false);
 
+        // The checker reads its configuration from a file, so a change nobody publishes is a
+        // change the checker never sees. Publishing here rather than on a timer means the
+        // next cycle already knows, and it is the only reason the checker can leave the
+        // database alone.
+        await projection.WriteConfigAsync(clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+
         return CreatedAtAction(nameof(Get), new { slug = component.Slug }, ToResponse(component));
     }
 
@@ -124,6 +134,7 @@ public sealed class ComponentsController(ComponentQueries components, TimeProvid
         component.Position = request.Position;
 
         await components.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await projection.WriteConfigAsync(clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
 
         return ToResponse(component);
     }
@@ -141,6 +152,8 @@ public sealed class ComponentsController(ComponentQueries components, TimeProvid
         }
 
         await components.RemoveAsync(component, cancellationToken).ConfigureAwait(false);
+        await projection.WriteConfigAsync(clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+
         return NoContent();
     }
 }
