@@ -1,0 +1,77 @@
+/*
+ * One place where the visual language is decided. Three front ends in this portfolio share
+ * this approach — tokens as custom properties, no utility framework — so a reader moving
+ * between them recognises the shape.
+ *
+ * The state colours are the only ones that carry meaning, and none of them carries it alone:
+ * every state also has a label and a shape, because roughly one man in twelve cannot tell
+ * the red from the green.
+ */
+:root {
+  --ink: #16181d;
+  --ink-muted: #5b6270;
+  --ink-faint: #868d9b;
+
+  --paper: #ffffff;
+  --paper-sunken: #f6f7f9;
+  --rule: #e3e6eb;
+
+  --up: #17915c;
+  --up-soft: #d7f0e3;
+  --degraded: #b3730a;
+  --degraded-soft: #fbeed6;
+  --down: #c0362c;
+  --down-soft: #f8ddda;
+  --unknown: #9aa1ad;
+  --unknown-soft: #eceef1;
+
+  --accent: #2f5fd0;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius: 6px;
+  --radius-sm: 3px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+
+  --shadow: 0 1px 2px rgb(16 18 22 / 6%), 0 4px 12px rgb(16 18 22 / 4%);
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8eaee;
+    --ink-muted: #a3aab8;
+    --ink-faint: #767e8c;
+
+    --paper: #14161a;
+    --paper-sunken: #1b1e24;
+    --rule: #2a2e36;
+
+    --up: #4cc38a;
+    --up-soft: #14301f;
+    --degraded: #e0a33a;
+    --degraded-soft: #33260c;
+    --down: #f26d63;
+    --down-soft: #3a1a16;
+    --unknown: #6f7684;
+    --unknown-soft: #23262c;
+
+    --accent: #7ea2f5;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 30%);
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "snapshotUrl": "http://127.0.0.1:10000/devstoreaccount1/status/status.json",
+  "apiUrl": "http://localhost:5080/api"
+}

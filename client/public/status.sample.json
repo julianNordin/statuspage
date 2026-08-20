@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-08-18T19:30:00+02:00",
+  "overall": "Degraded",
+  "components": [
+    {
+      "slug": "api",
+      "name": "API",
+      "state": "Up",
+      "since": "2026-08-16T09:00:00+02:00",
+      "lastLatencyMs": 143,
+      "uptime": 0.9998,
+      "measuredHours": 2160,
+      "days": []
+    },
+    {
+      "slug": "website",
+      "name": "Website",
+      "state": "Degraded",
+      "since": "2026-08-18T18:10:00+02:00",
+      "lastLatencyMs": 2310,
+      "uptime": 0.9912,
+      "measuredHours": 2160,
+      "days": []
+    }
+  ],
+  "incidents": [],
+  "maintenance": []
+}
