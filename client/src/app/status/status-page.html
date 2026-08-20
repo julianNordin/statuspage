@@ -1,0 +1,131 @@
+<div class="page">
+  <header class="masthead">
+    <h1>Service status</h1>
+  </header>
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <p class="notice" role="status">Loading the current status…</p>
+    }
+
+    @case ('failed') {
+      <!--
+        The page could not reach the file. Saying so plainly is the honest answer; showing a
+        cheerful green banner because nothing contradicted it would be worse than showing
+        nothing at all.
+      -->
+      <p class="notice notice--bad" role="alert">
+        {{ state().kind === 'failed' ? $any(state()).reason : '' }}
+      </p>
+    }
+
+    @case ('ready') {
+      @if (snapshot(); as snap) {
+        <section class="overall" [attr.data-state]="snap.overall" aria-live="polite">
+          <h2 class="overall__headline">{{ overallLabel() }}</h2>
+          <p class="overall__meta">
+            Last checked {{ relative(snap.generatedAt) }}
+            <span class="overall__exact">({{ moment(snap.generatedAt) }})</span>
+          </p>
+        </section>
+
+        @if (openIncidents().length > 0) {
+          <section class="block" aria-labelledby="open-incidents">
+            <h2 id="open-incidents" class="block__title">Open incidents</h2>
+            @for (incident of openIncidents(); track incident.id) {
+              <article class="incident incident--open">
+                <h3 class="incident__title">{{ incident.title }}</h3>
+                <p class="incident__meta">
+                  {{ incident.status }} · started {{ relative(incident.startedAt) }} ·
+                  affects {{ incident.affectedComponents.join(', ') }}
+                </p>
+                <ol class="updates">
+                  @for (update of incident.updates; track update.postedAt) {
+                    <li class="update">
+                      <p class="update__body">{{ update.body }}</p>
+                      <p class="update__meta">
+                        {{ update.status }} · {{ moment(update.postedAt) }}
+                        @if (update.postedBy) {
+                          · {{ update.postedBy }}
+                        }
+                      </p>
+                    </li>
+                  }
+                </ol>
+              </article>
+            }
+          </section>
+        }
+
+        @if (snap.maintenance.length > 0) {
+          <section class="block" aria-labelledby="maintenance">
+            <h2 id="maintenance" class="block__title">Scheduled maintenance</h2>
+            @for (window of snap.maintenance; track window.startsAt) {
+              <article class="incident">
+                <h3 class="incident__title">{{ window.title }}</h3>
+                <p class="incident__meta">
+                  {{ moment(window.startsAt) }} — {{ moment(window.endsAt) }} ·
+                  affects {{ window.affectedComponents.join(', ') }}
+                </p>
+                @if (window.description) {
+                  <p class="incident__body">{{ window.description }}</p>
+                }
+              </article>
+            }
+          </section>
+        }
+
+        <section class="block" aria-labelledby="components">
+          <h2 id="components" class="block__title">Components</h2>
+
+          @if (snap.components.length === 0) {
+            <p class="notice">Nothing is being monitored yet.</p>
+          }
+
+          <ul class="components">
+            @for (component of snap.components; track component.slug) {
+              <li class="component">
+                <div class="component__head">
+                  <h3 class="component__name">{{ component.name }}</h3>
+                  <sp-state-badge [state]="component.state" />
+                </div>
+
+                <sp-uptime-bars [days]="component.days" />
+
+                <p class="component__figures">
+                  <span class="component__uptime">{{ uptime(component.uptime) }}</span>
+                  <span class="component__measured">{{ measured(component.measuredHours) }}</span>
+                  @if (component.lastLatencyMs !== null) {
+                    <span class="component__latency">{{ component.lastLatencyMs }} ms</span>
+                  }
+                </p>
+              </li>
+            }
+          </ul>
+        </section>
+
+        @if (pastIncidents().length > 0) {
+          <section class="block" aria-labelledby="past-incidents">
+            <h2 id="past-incidents" class="block__title">Past incidents</h2>
+            @for (incident of pastIncidents(); track incident.id) {
+              <article class="incident">
+                <h3 class="incident__title">{{ incident.title }}</h3>
+                <p class="incident__meta">
+                  Resolved {{ relative(incident.resolvedAt) }} ·
+                  affected {{ incident.affectedComponents.join(', ') }}
+                </p>
+              </article>
+            }
+          </section>
+        }
+      }
+    }
+  }
+
+  <footer class="footer">
+    <p>
+      This page is a static file regenerated by a scheduled checker. It does not call the API
+      it reports on, so it keeps working when that API does not.
+    </p>
+  </footer>
+</div>
