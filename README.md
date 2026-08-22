@@ -53,7 +53,7 @@ Two other decisions are the substance:
 - [x] 09 — The checker: a worker that runs and exits
 - [x] 10 — The read model: config in, snapshot out
 - [x] 11 — Angular: shell, tokens, and the public status page
-- [ ] 12 — Angular: the operator console
+- [x] 12 — Angular: the operator console
 - [ ] 13 — Containers: two images, one Compose
 - [ ] 14 — Tests that run in CI: integration and E2E
 - [ ] 15 — CI: build, test, images to GHCR
