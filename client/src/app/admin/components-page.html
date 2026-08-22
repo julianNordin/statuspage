@@ -1,0 +1,102 @@
+<h1 class="page-title">Components</h1>
+
+@if (error(); as message) {
+  <p class="alert" role="alert">{{ message }}</p>
+}
+
+<section class="panel" aria-labelledby="add-component">
+  <h2 id="add-component" class="panel__title">Add a component</h2>
+
+  <form [formGroup]="form" (ngSubmit)="add()" novalidate class="grid">
+    <label class="field">
+      <span class="field__label">Name</span>
+      <input formControlName="name" required [attr.aria-invalid]="invalid('name') || null" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Slug</span>
+      <input formControlName="slug" required [attr.aria-invalid]="invalid('slug') || null" />
+      @if (invalid('slug')) {
+        <span class="field__error">Lowercase letters, digits and single hyphens.</span>
+      }
+    </label>
+
+    <label class="field field--wide">
+      <span class="field__label">Target URL</span>
+      <input formControlName="targetUrl" required [attr.aria-invalid]="invalid('targetUrl') || null" />
+      <span class="field__hint">
+        Must be a public http or https address. Private ranges and the cloud metadata endpoint
+        are refused by the server.
+      </span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Expected status</span>
+      <input type="number" formControlName="expectedStatusCode" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Degraded above (ms)</span>
+      <input type="number" formControlName="degradedAboveMs" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Failures to open</span>
+      <input type="number" formControlName="failuresToOpen" min="1" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Successes to close</span>
+      <input type="number" formControlName="successesToClose" min="1" />
+    </label>
+
+    <div class="field field--wide">
+      <button type="submit" class="button" [disabled]="saving()">
+        {{ saving() ? 'Adding…' : 'Add component' }}
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="panel" aria-labelledby="existing">
+  <h2 id="existing" class="panel__title">Monitored</h2>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (components().length === 0) {
+    <p class="muted">Nothing is being monitored yet.</p>
+  } @else {
+    <table class="table">
+      <caption class="visually-hidden">Components currently configured</caption>
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Slug</th>
+          <th scope="col">Target</th>
+          <th scope="col">Thresholds</th>
+          <th scope="col">State</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (component of components(); track component.id) {
+          <tr>
+            <td>{{ component.name }}</td>
+            <td><code>{{ component.slug }}</code></td>
+            <td class="target">{{ component.targetUrl }}</td>
+            <td>{{ component.failuresToOpen }} down / {{ component.successesToClose }} up</td>
+            <td>{{ component.enabled ? 'Checked' : 'Paused' }}</td>
+            <td class="actions">
+              <button type="button" class="link" (click)="toggle(component)">
+                {{ component.enabled ? 'Pause' : 'Resume' }}
+              </button>
+              <button type="button" class="link link--danger" (click)="remove(component)">
+                Delete
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>
