@@ -1,0 +1,127 @@
+<h1 class="page-title">Incidents</h1>
+
+@if (error(); as message) {
+  <p class="alert" role="alert">{{ message }}</p>
+}
+
+<section class="panel" aria-labelledby="declare">
+  <h2 id="declare" class="panel__title">Declare an incident</h2>
+
+  <form [formGroup]="declareForm" (ngSubmit)="declare()" novalidate class="grid">
+    <label class="field field--wide">
+      <span class="field__label">Title</span>
+      <input formControlName="title" required />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Component</span>
+      <select formControlName="slug" required>
+        <option value="">Choose one</option>
+        @for (component of components(); track component.id) {
+          <option [value]="component.slug">{{ component.name }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Impact</span>
+      <select formControlName="impact">
+        <option value="None">None</option>
+        <option value="Minor">Minor</option>
+        <option value="Major">Major</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </label>
+
+    <label class="field field--wide">
+      <span class="field__label">First update</span>
+      <textarea formControlName="body" rows="3" required></textarea>
+      <span class="field__hint">
+        What a reader should know right now. It appears on the public page immediately.
+      </span>
+    </label>
+
+    <div class="field field--wide">
+      <button type="submit" class="button" [disabled]="saving()">
+        {{ saving() ? 'Declaring…' : 'Declare incident' }}
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="panel" aria-labelledby="open-incidents">
+  <h2 id="open-incidents" class="panel__title">Open</h2>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (open().length === 0) {
+    <p class="muted">Nothing open. Everything the checker knows about is behaving.</p>
+  } @else {
+    @for (incident of open(); track incident.id) {
+      <article class="incident">
+        <h3 class="incident__title">{{ incident.title }}</h3>
+        <p class="incident__meta">
+          {{ incident.status }} · {{ incident.impact }} · started {{ relative(incident.startedAt) }}
+          @if (incident.openedAutomatically) {
+            · <span class="tag">opened by the checker</span>
+          }
+        </p>
+
+        <ol class="updates">
+          @for (update of incident.updates; track update.postedAt) {
+            <li>
+              <p class="update__body">{{ update.body }}</p>
+              <p class="update__meta">
+                {{ update.status }} · {{ moment(update.postedAt) }}
+                @if (update.postedBy) { · {{ update.postedBy }} }
+              </p>
+            </li>
+          }
+        </ol>
+
+        @if (updating() === incident.id) {
+          <form [formGroup]="updateForm" (ngSubmit)="postUpdate(incident)" novalidate class="grid">
+            <label class="field field--wide">
+              <span class="field__label">Update</span>
+              <textarea formControlName="body" rows="3" required></textarea>
+            </label>
+            <label class="field">
+              <span class="field__label">Status</span>
+              <select formControlName="status">
+                @for (status of statuses; track status) {
+                  <option [value]="status">{{ status }}</option>
+                }
+              </select>
+              <span class="field__hint">
+                Resolved is final. If it happens again, declare a new incident.
+              </span>
+            </label>
+            <div class="field field--wide actions">
+              <button type="submit" class="button" [disabled]="saving()">Post update</button>
+              <button type="button" class="link" (click)="cancelUpdate()">Cancel</button>
+            </div>
+          </form>
+        } @else {
+          <button type="button" class="link" (click)="startUpdate(incident)">Post an update</button>
+        }
+      </article>
+    }
+  }
+</section>
+
+<section class="panel" aria-labelledby="resolved-incidents">
+  <h2 id="resolved-incidents" class="panel__title">Resolved</h2>
+
+  @if (resolved().length === 0) {
+    <p class="muted">Nothing resolved yet.</p>
+  } @else {
+    <ul class="plain">
+      @for (incident of resolved(); track incident.id) {
+        <li>
+          <strong>{{ incident.title }}</strong>
+          <span class="muted"> — resolved {{ relative(incident.resolvedAt) }}</span>
+        </li>
+      }
+    </ul>
+  }
+</section>
