@@ -1,0 +1,22 @@
+# Build outputs and caches never belong in a build context: they bloat the upload, they
+# invalidate layer caching on every local build, and a stale bin/ can silently shadow a
+# freshly compiled one.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/TestResults/
+**/playwright-report/
+**/test-results/
+
+.git/
+.github/
+.vs/
+.vscode/
+
+**/*.user
+**/*.suo
+Dockerfile*
+docker-compose*.yml
+README.md
