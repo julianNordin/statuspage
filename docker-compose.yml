@@ -1,5 +1,12 @@
 name: statuspage
 
+# The whole stack: a database, a blob emulator, a one-shot migrator, the API and the checker.
+#
+# `docker compose up` brings up everything in the right order and stops when the checker has
+# nothing left to do. That is the point of having it — the deployed environment is the same
+# five pieces, and a stack that can only be assembled in Azure is one that is only ever
+# assembled in production.
+
 services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -38,6 +45,85 @@ services:
       - "10000:10000"
     volumes:
       - blob-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 10000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  migrate:
+    # Runs once, to completion, before anything else touches the schema. Everything that
+    # follows waits on service_completed_successfully, so a failed migration stops the stack
+    # rather than leaving the API to crash-loop against a schema that is half there.
+    build:
+      context: .
+      dockerfile: src/StatusPage.Infrastructure/Dockerfile
+    image: statuspage-migrate:local
+    container_name: statuspage-migrate
+    command:
+      - --connection
+      - "Server=db,1433;Database=statuspage;User Id=sa;Password=Dev_only_p4ssword!;TrustServerCertificate=true"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/StatusPage.Api/Dockerfile
+    image: statuspage-api:local
+    container_name: statuspage-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Server=db,1433;Database=statuspage;User Id=sa;Password=Dev_only_p4ssword!;TrustServerCertificate=true"
+      # The migrator has already run. Doing it again here would be a race the moment there
+      # is more than one replica.
+      Database__MigrateOnStartup: "false"
+      Jwt__Issuer: statuspage
+      Jwt__Audience: statuspage-console
+      Jwt__SigningKey: "compose-only-signing-key-0123456789abcdefghij"
+      Cors__AllowedOrigins__0: "http://localhost:4200"
+      ReadModel__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://blob:10000/devstoreaccount1;"
+      Operators__0__Email: "operator@example.com"
+      Operators__0__DisplayName: "Sam Operator"
+      Operators__0__Password: "Statuspage-Demo-1"
+    ports:
+      - "5080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      blob:
+        condition: service_healthy
+    # No healthcheck here, deliberately. The aspnet runtime image ships no curl and no wget,
+    # and the check that was here ran `dotnet --info` — which proves the runtime starts and
+    # says nothing about whether the app is serving. A green tick that means nothing is worse
+    # than no tick, and nothing in this file waits on the API being healthy anyway.
+    #
+    # In Azure the readiness probe is a real HTTP GET of /health, declared in the Container
+    # App and run by the platform from outside the container. That is where it belongs.
+
+  checker:
+    build:
+      context: .
+      dockerfile: src/StatusPage.Checker/Dockerfile
+    image: statuspage-checker:local
+    container_name: statuspage-checker
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Server=db,1433;Database=statuspage;User Id=sa;Password=Dev_only_p4ssword!;TrustServerCertificate=true"
+      ReadModel__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://blob:10000/devstoreaccount1;"
+      # In Azure this is a cron job and the process runs once. Here it loops, because
+      # watching it tick is how you find out it works.
+      Checker__Loop: "true"
+      Checker__IntervalSeconds: "30"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      blob:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db-data:
