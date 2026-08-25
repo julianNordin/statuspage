@@ -48,7 +48,7 @@ public class UptimeThroughTheApiTests(ApiFactory factory)
     private async Task<ComponentStatusResponse> ReadAsync(string slug)
     {
         var client = factory.CreateClient();
-        var status = await client.GetFromJsonAsync<StatusResponse>(
+        var status = await client.GetJsonAsync<StatusResponse>(
             "/api/status", TestContext.Current.CancellationToken);
 
         Assert.NotNull(status);

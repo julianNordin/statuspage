@@ -47,7 +47,7 @@ public class ReadModelEndpointTests(ApiFactory factory)
 
         var created = await client.PostAsJsonAsync(
             "/api/components", NewComponent(slug), TestContext.Current.CancellationToken);
-        var component = await created.Content.ReadFromJsonAsync<ComponentResponse>(
+        var component = await created.Content.ReadJsonAsync<ComponentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(component);
 

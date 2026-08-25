@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -37,6 +38,11 @@ public sealed class BlobReadModelStore(BlobServiceClient client, ReadModelOption
     {
         // The page reads these directly, and a human reads them when something is wrong.
         WriteIndented = false,
+
+        // Enums as names, not numbers. "overall": 0 is unreadable to a person and ambiguous
+        // to a client — the numeric value is an implementation detail of the C# enum, free to
+        // change when a member is inserted, and the snapshot is a contract.
+        Converters = { new JsonStringEnumConverter() },
     };
 
     public async Task<T?> ReadAsync<T>(string name, CancellationToken cancellationToken = default)

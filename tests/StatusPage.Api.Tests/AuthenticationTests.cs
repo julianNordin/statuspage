@@ -27,7 +27,7 @@ public class AuthenticationTests(ApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(
+        var body = await response.Content.ReadJsonAsync<AccessTokenResponse>(
             TestContext.Current.CancellationToken);
 
         Assert.NotNull(body);

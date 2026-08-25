@@ -32,7 +32,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, fetched.StatusCode);
 
-        var body = await fetched.Content.ReadFromJsonAsync<ComponentResponse>(
+        var body = await fetched.Content.ReadJsonAsync<ComponentResponse>(
             TestContext.Current.CancellationToken);
 
         Assert.NotNull(body);
@@ -100,7 +100,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
 
         var created = await client.PostAsJsonAsync(
             "/api/components", NewRequest(UniqueSlug()), TestContext.Current.CancellationToken);
-        var component = await created.Content.ReadFromJsonAsync<ComponentResponse>(
+        var component = await created.Content.ReadJsonAsync<ComponentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(component);
 
@@ -116,7 +116,7 @@ public class ComponentsEndpointTests(ApiFactory factory)
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
-        var after = await updated.Content.ReadFromJsonAsync<ComponentResponse>(
+        var after = await updated.Content.ReadJsonAsync<ComponentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(after);
         Assert.Equal("Renamed", after.Name);

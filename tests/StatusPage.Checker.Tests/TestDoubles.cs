@@ -30,7 +30,12 @@ internal sealed class ScriptedProbe : ITargetProbe
 /// </summary>
 internal sealed class InMemoryReadModelStore : IReadModelStore
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // The same converter the blob store uses. A double that serialises differently to
+    // production is a double that hides exactly the bugs it exists to catch.
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
     private readonly Dictionary<string, string> _documents = new(StringComparer.Ordinal);
 
     public int Reads { get; private set; }

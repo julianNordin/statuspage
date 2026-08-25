@@ -44,7 +44,7 @@ public class IncidentEndpointTests(ApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, declared.StatusCode);
 
-        var incident = await declared.Content.ReadFromJsonAsync<IncidentResponse>(
+        var incident = await declared.Content.ReadJsonAsync<IncidentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(incident);
         Assert.Equal(IncidentStatus.Investigating, incident.Status);
@@ -107,7 +107,7 @@ public class IncidentEndpointTests(ApiFactory factory)
                 Title = "Something broke", Body = "Looking.", ComponentSlugs = [slug],
             },
             TestContext.Current.CancellationToken);
-        var incident = await declared.Content.ReadFromJsonAsync<IncidentResponse>(
+        var incident = await declared.Content.ReadJsonAsync<IncidentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(incident);
 
@@ -117,7 +117,7 @@ public class IncidentEndpointTests(ApiFactory factory)
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, resolved.StatusCode);
-        var after = await resolved.Content.ReadFromJsonAsync<IncidentResponse>(
+        var after = await resolved.Content.ReadJsonAsync<IncidentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(after);
         Assert.Equal(IncidentStatus.Resolved, after.Status);
@@ -176,7 +176,7 @@ public class IncidentEndpointTests(ApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, scheduled.StatusCode);
 
         var anonymous = factory.CreateClient();
-        var upcoming = await anonymous.GetFromJsonAsync<List<MaintenanceResponse>>(
+        var upcoming = await anonymous.GetJsonAsync<List<MaintenanceResponse>>(
             "/api/maintenance", TestContext.Current.CancellationToken);
 
         Assert.NotNull(upcoming);

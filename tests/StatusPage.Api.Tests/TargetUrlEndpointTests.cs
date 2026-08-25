@@ -48,7 +48,7 @@ public class TargetUrlEndpointTests(ApiFactory factory)
             "/api/components",
             WithTarget("https://example.com/health"),
             TestContext.Current.CancellationToken);
-        var component = await created.Content.ReadFromJsonAsync<ComponentResponse>(
+        var component = await created.Content.ReadJsonAsync<ComponentResponse>(
             TestContext.Current.CancellationToken);
         Assert.NotNull(component);
 
