@@ -23,9 +23,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _container.StartAsync();
 
+        // Touching Services starts the host, which migrates and then seeds the operators.
+        // The order matters and belongs to Program, not here.
         using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<StatusPageDbContext>();
-        await db.Database.MigrateAsync();
+        _ = scope.ServiceProvider.GetRequiredService<StatusPageDbContext>();
     }
 
     public new async ValueTask DisposeAsync()
@@ -39,6 +40,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.UseSetting("ConnectionStrings:Default", _container.GetConnectionString());
+        // There is no migrator container here, so the app migrates itself. In a deployed
+        // environment that is off and a one-shot job does it, because migrating from startup
+        // is a race the moment there is more than one replica.
+        builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Jwt:Issuer", "statuspage-tests");
         builder.UseSetting("Jwt:Audience", "statuspage-tests");
         builder.UseSetting("Jwt:SigningKey", "tests-only-signing-key-0123456789abcdefghijklmnop");
@@ -83,7 +88,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
 
-        var body = await response.Content.ReadFromJsonAsync<TokenBody>(cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<TokenBody>(TestJson.Options, cancellationToken);
 
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", body!.AccessToken);

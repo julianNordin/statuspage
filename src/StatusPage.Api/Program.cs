@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -81,8 +82,12 @@ builder.Services.AddReadModel(builder.Configuration);
 // this codebase is written against the wall clock.
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddControllers(options =>
-    options.Filters.Add<ProblemDetailsContentTypeFilter>());
+builder.Services
+    .AddControllers(options => options.Filters.Add<ProblemDetailsContentTypeFilter>())
+    .AddJsonOptions(options =>
+        // Enums as names. The console switches on them and a reader debugging a response
+        // should not have to count enum members to find out what 2 meant.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 
 // RFC 9457 for everything: validation failures, 404s from the framework, and whatever
@@ -103,12 +108,21 @@ builder.Services.AddCors(options => options.AddPolicy(SpaCors, policy => policy
 
 var app = builder.Build();
 
-// Migrate and seed before serving. The operators listed in configuration are the only way
-// an account comes into being; there is no registration endpoint anywhere in this API.
+// Seed before serving. The operators listed in configuration are the only way an account
+// comes into being; there is no registration endpoint anywhere in this API.
+//
+// Migrating here is opt-in and off by default. With more than one replica it is a race —
+// two instances reach for the same lock and the loser waits or fails depending on the
+// provider's mood — and a failed migration crash-loops a container instead of stopping a
+// deployment. The migration bundle image runs as a one-shot job that must finish first.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<StatusPageDbContext>();
-    await db.Database.MigrateAsync().ConfigureAwait(false);
+
+    if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
+    {
+        await db.Database.MigrateAsync().ConfigureAwait(false);
+    }
 
     var seeds = app.Configuration.GetSection("Operators").Get<SeededOperator[]>() ?? [];
     if (seeds.Length > 0)
