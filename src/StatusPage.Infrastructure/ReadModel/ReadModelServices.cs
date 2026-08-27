@@ -28,6 +28,7 @@ public static class ReadModelServices
 
         services.AddSingleton<IReadModelStore, BlobReadModelStore>();
         services.AddScoped<ReadModelProjection>();
+        services.AddSingleton<ReadModelCors>();
 
         return services;
     }

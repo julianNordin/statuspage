@@ -124,6 +124,17 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync().ConfigureAwait(false);
     }
 
+    // The page reads the snapshot straight from blob storage, from a different origin, so
+    // the storage account has to say a browser may. In Azure the template declares this and
+    // the deployed identity cannot change it; locally there is no template.
+    if (app.Configuration.GetValue("ReadModel:ConfigureCors", false))
+    {
+        await scope.ServiceProvider
+            .GetRequiredService<ReadModelCors>()
+            .ConfigureAsync(app.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+            .ConfigureAwait(false);
+    }
+
     var seeds = app.Configuration.GetSection("Operators").Get<SeededOperator[]>() ?? [];
     if (seeds.Length > 0)
     {
