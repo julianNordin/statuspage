@@ -55,7 +55,7 @@ Two other decisions are the substance:
 - [x] 11 — Angular: shell, tokens, and the public status page
 - [x] 12 — Angular: the operator console
 - [x] 13 — Containers: two images, one Compose
-- [ ] 14 — Tests that run in CI: integration and E2E
+- [x] 14 — Tests that run in CI: integration and E2E
 - [ ] 15 — CI: build, test, images to GHCR
 - [ ] 16 — Azure, described in Bicep
 - [ ] 17 — The deploy pipeline, with no stored credential
