@@ -1,0 +1,75 @@
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the whole EF stack. The provider, the design-time tooling and the
+      # migration bundle have to move together, and three separate PRs each break the
+      # other two.
+      entity-framework:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+      aspnet:
+        patterns:
+          - "Microsoft.AspNetCore*"
+          - "Microsoft.Extensions*"
+      serilog:
+        patterns:
+          - "Serilog*"
+    ignore:
+      # The Design package's latest tag is an 11.0.0 preview while the SqlServer provider's
+      # is the stable 10.0.11. Majors here are opened by hand, after checking the two are
+      # actually on the same line.
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      # The runtime is pinned by global.json. A major here would be a .NET upgrade wearing a
+      # dependency bump's clothes.
+      - dependency-name: "Microsoft.AspNetCore*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Angular's packages are versioned in lockstep and refuse to be mixed.
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-eslint/*"
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      # typescript-eslint pins the TypeScript versions it can parse. A TS major arriving on
+      # its own breaks the lint rules that need the compiler API.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /src/StatusPage.Api
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /src/StatusPage.Checker
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /src/StatusPage.Infrastructure
+    schedule:
+      interval: weekly
