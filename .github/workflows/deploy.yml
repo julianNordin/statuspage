@@ -1,0 +1,84 @@
+name: Deploy
+
+# There is no stored credential anywhere in this workflow, which is the point of it.
+#
+# GitHub mints a short-lived OIDC token describing this repository, this workflow and this
+# environment; Entra is configured to trust exactly that description and trades the token for
+# an Azure one. Nothing long-lived is held here, so there is nothing to leak, nothing to
+# rotate, and revoking access is a change on the Azure side rather than a scramble through
+# repository settings.
+#
+# The three values read from secrets below are identifiers rather than credentials — a client
+# id, a tenant, a subscription. On their own they grant nothing. They are kept as secrets
+# regardless, because naming the subscription this deploys into is free information to give
+# away and there is no reason to give it.
+
+on:
+  workflow_dispatch:
+
+  # Only what CI has already proved. The template runs the images the CI images job pushes, so
+  # deploying a commit CI has not finished with would point the environment at an image that
+  # does not exist yet.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write # mint the OIDC token — this is the line that replaces a stored secret
+  contents: read
+
+concurrency:
+  # Never two deploys at once, and never cancel one in flight. A half-applied template or an
+  # interrupted migration is a worse thing to own than a queue.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    # A dispatch is deliberate and runs. A CI completion only runs when CI actually passed:
+    # workflow_run fires on failure too, and without this the environment would be redeployed
+    # from a commit whose tests had just gone red.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    # The federated credential is scoped to this environment, so the subject Entra trusts is
+    # repo:OWNER/REPO:environment:production. A workflow on a branch or a fork produces a
+    # different subject and is refused by Azure rather than by a check written here.
+    environment: production
+
+    steps:
+      # workflow_run checks out the default branch by default, which is not necessarily the
+      # commit CI ran against. Deploying anything other than the exact commit that was proved
+      # would make the CI result meaningless.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The same script a workstation runs, called the same way. One implementation of the
+      # deployment means the rehearsal and the real thing cannot drift apart — and this script
+      # was rehearsed from a workstation many times before this workflow ever ran, because the
+      # federated credential could not exist until the repository did.
+      #
+      # It deploys the template, grants the workload identity a database user, runs the
+      # migration job and waits on it, publishes the status page, and then smoke-tests the
+      # result. Any of those failing fails the deployment.
+      - name: Deploy, migrate, publish and verify
+        shell: pwsh
+        run: ./scripts/deploy.ps1 -ResourceGroup ${{ vars.AZURE_RESOURCE_GROUP || 'rg-statuspage' }}
