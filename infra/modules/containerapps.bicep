@@ -51,6 +51,12 @@ param registryServer string = ''
 @description('How often the checker runs, as a cron expression.')
 param checkerCron string = '*/10 * * * *'
 
+@description('Sign-in address of the seeded operator. There is no registration endpoint, so an account that is not seeded cannot come into being at all.')
+param operatorEmail string
+
+@description('Name shown beside incident updates posted by that operator.')
+param operatorDisplayName string
+
 var jwtIssuer = 'statuspage'
 var jwtAudience = 'statuspage-console'
 
@@ -120,6 +126,11 @@ resource api 'Microsoft.App/containerApps@2025-01-01' = {
           keyVaultUrl: '${vaultUri}secrets/jwt-signing-key'
           identity: identityId
         }
+        {
+          name: 'operator-password'
+          keyVaultUrl: '${vaultUri}secrets/operator-password'
+          identity: identityId
+        }
       ]
     }
     template: {
@@ -137,6 +148,14 @@ resource api 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'Jwt__Audience', value: jwtAudience }
             { name: 'Jwt__SigningKey', secretRef: 'jwt-signing-key' }
             { name: 'Cors__AllowedOrigins__0', value: allowedOrigins[0] }
+            // Without these the Operators section stays the empty array from appsettings.json,
+            // the seeder is never called, and the deployment comes up with no account that can
+            // sign in — so no components, so nothing for the checker to check and nothing for
+            // the page to show. It looks like a working deployment from the outside, which is
+            // exactly why the smoke test now signs in rather than assuming.
+            { name: 'Operators__0__Email', value: operatorEmail }
+            { name: 'Operators__0__DisplayName', value: operatorDisplayName }
+            { name: 'Operators__0__Password', secretRef: 'operator-password' }
           ])
           probes: [
             {

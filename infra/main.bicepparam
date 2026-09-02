@@ -10,6 +10,13 @@ param administratorObjectId = readEnvironmentVariable('STATUSPAGE_ADMIN_OBJECT_I
 param administratorName = readEnvironmentVariable('STATUSPAGE_ADMIN_NAME')
 param jwtSigningKey = readEnvironmentVariable('STATUSPAGE_JWT_SIGNING_KEY')
 
+// The operator password is the same shape of thing as the signing key: generated once by the
+// deploy script, kept in Key Vault, never a value in this file. The address is not a secret,
+// but it is environment-specific, so it comes from here too.
+param operatorPassword = readEnvironmentVariable('STATUSPAGE_OPERATOR_PASSWORD')
+param operatorEmail = readEnvironmentVariable('STATUSPAGE_OPERATOR_EMAIL', 'operator@statuspage.local')
+param operatorDisplayName = readEnvironmentVariable('STATUSPAGE_OPERATOR_NAME', 'Operator')
+
 // Images. Defaulted to GHCR under the repository that will exist at publish time; the deploy
 // script overrides them when they are somewhere else.
 param apiImage = readEnvironmentVariable('STATUSPAGE_API_IMAGE', 'ghcr.io/juliannordin/statuspage/api:latest')

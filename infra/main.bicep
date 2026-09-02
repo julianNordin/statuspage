@@ -39,6 +39,17 @@ param administratorName string
 @minLength(32)
 param jwtSigningKey string
 
+@description('Password for the seeded operator. Generated per environment and never committed.')
+@secure()
+@minLength(12)
+param operatorPassword string
+
+@description('Sign-in address of the seeded operator. Accounts are seeded from configuration because there is no registration endpoint to create one with.')
+param operatorEmail string = 'operator@statuspage.local'
+
+@description('Name shown beside incident updates posted by that operator.')
+param operatorDisplayName string = 'Operator'
+
 @description('Fully qualified image for the API.')
 param apiImage string
 
@@ -125,6 +136,7 @@ module vault 'modules/keyvault.bicep' = {
     tags: tags
     administratorObjectId: administratorObjectId
     jwtSigningKey: jwtSigningKey
+    operatorPassword: operatorPassword
     workloadPrincipalId: identity.properties.principalId
   }
 }
@@ -149,6 +161,8 @@ module apps 'modules/containerapps.bicep' = {
     blobEndpoint: storage.outputs.blobEndpoint
     vaultUri: vault.outputs.vaultUri
     allowedOrigins: [siteOrigin]
+    operatorEmail: operatorEmail
+    operatorDisplayName: operatorDisplayName
   }
 }
 
@@ -165,6 +179,7 @@ output sqlDatabaseName string = sql.outputs.databaseName
 output vaultName string = vault.outputs.vaultName
 output migrateJobName string = apps.outputs.migrateJobName
 output checkerJobName string = apps.outputs.checkerJobName
+output operatorEmail string = operatorEmail
 output identityName string = identity.name
 output identityClientId string = identity.properties.clientId
 output identityPrincipalId string = identity.properties.principalId

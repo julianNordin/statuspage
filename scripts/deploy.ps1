@@ -24,12 +24,17 @@
 
 .PARAMETER SkipGrant
     Skip the database grant. Only useful when re-running after it has already succeeded.
+
+.PARAMETER SkipSite
+    Skip building and uploading the status page. The slowest step and the one least likely to
+    have changed when re-running to fix something in the infrastructure.
 #>
 [CmdletBinding()]
 param(
     [string] $ResourceGroup = 'rg-statuspage',
     [string] $Location = 'swedencentral',
-    [switch] $SkipGrant
+    [switch] $SkipGrant,
+    [switch] $SkipSite
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,9 +44,25 @@ function Write-Step { param([string] $Message) Write-Host ''; Write-Host "==> $M
 
 Write-Step 'Checking the signed-in principal'
 $account = az account show --output json | ConvertFrom-Json
-$principal = az ad signed-in-user show --output json | ConvertFrom-Json
+
+# Whoever deploys becomes the database's Entra admin, and then does the grant as that admin,
+# which keeps the two consistent however this script was started. The two ways of signing in
+# answer "who are you" differently though: a person has a signed-in user, and a workflow
+# holding a federated credential has none — `az ad signed-in-user show` fails outright there
+# rather than returning nothing. So ask the account what kind it is instead of assuming.
+if ($account.user.type -eq 'servicePrincipal') {
+    $servicePrincipal = az ad sp show --id $account.user.name --output json | ConvertFrom-Json
+    $adminObjectId = $servicePrincipal.id
+    $adminName = $servicePrincipal.displayName
+}
+else {
+    $principal = az ad signed-in-user show --output json | ConvertFrom-Json
+    $adminObjectId = $principal.id
+    $adminName = $principal.userPrincipalName
+}
+
 Write-Host "    subscription  $($account.name)"
-Write-Host "    principal     $($principal.userPrincipalName)"
+Write-Host "    principal     $adminName"
 
 Write-Step "Ensuring $ResourceGroup exists"
 az group create --name $ResourceGroup --location $Location --tags project=statuspage managedBy=bicep --output none
@@ -64,9 +85,33 @@ else {
     Write-Host '    generated a new key'
 }
 
-$env:STATUSPAGE_ADMIN_OBJECT_ID = $principal.id
-$env:STATUSPAGE_ADMIN_NAME = $principal.userPrincipalName
+# Same treatment for the operator password, for a sharper reason. Regenerating it on a
+# redeploy would lock out the only account that can declare an incident — and it would not
+# even replace anything, because the seeder never re-passwords an account that already
+# exists. The new value would simply stop matching the one that works.
+Write-Step 'Resolving the operator password'
+$operatorPassword = $null
+if ($vaultName) {
+    $operatorPassword = az keyvault secret show --vault-name $vaultName --name operator-password --query value --output tsv 2>$null
+}
+if ($operatorPassword) {
+    Write-Host '    reusing the existing password'
+}
+else {
+    # Identity's default policy wants an uppercase letter, a lowercase one, a digit and a
+    # symbol, and base64 on its own guarantees none of the four. The suffix guarantees all of
+    # them; the random part in front is what actually carries the entropy. Getting this wrong
+    # fails at seeding time, on a deployment that otherwise looks finished.
+    $bytes = [byte[]]::new(24)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $operatorPassword = [Convert]::ToBase64String($bytes) + 'Aa1!'
+    Write-Host '    generated a new password'
+}
+
+$env:STATUSPAGE_ADMIN_OBJECT_ID = $adminObjectId
+$env:STATUSPAGE_ADMIN_NAME = $adminName
 $env:STATUSPAGE_JWT_SIGNING_KEY = $signingKey
+$env:STATUSPAGE_OPERATOR_PASSWORD = $operatorPassword
 
 Write-Step 'Deploying the template'
 $deployment = az deployment group create `
@@ -132,13 +177,30 @@ if ($status -ne 'Succeeded') {
     exit 1
 }
 
+if (-not $SkipSite) {
+    # Before the smoke test rather than after it, so the checks run against the site this
+    # deployment actually published rather than whatever was there beforehand.
+    Write-Step 'Publishing the status page'
+    & (Join-Path $PSScriptRoot 'publish-site.ps1') `
+        -ResourceGroup $ResourceGroup `
+        -SiteName $out.siteName.value `
+        -ApiUrl $out.apiUrl.value `
+        -SnapshotUrl $out.snapshotUrl.value
+}
+
 Write-Step 'Smoke test'
 & (Join-Path $PSScriptRoot 'smoke.ps1') `
     -ApiUrl $out.apiUrl.value `
     -SnapshotUrl $out.snapshotUrl.value `
-    -SiteUrl $out.siteUrl.value
+    -SiteUrl $out.siteUrl.value `
+    -OperatorEmail $out.operatorEmail.value `
+    -OperatorPassword $operatorPassword
 
 Write-Host ''
 Write-Host 'Deployed.' -ForegroundColor Green
 Write-Host "  Status page  $($out.siteUrl.value)"
 Write-Host "  API          $($out.apiUrl.value)"
+Write-Host "  Operator     $($out.operatorEmail.value)"
+# The command rather than the value. This script runs in CI too, and stdout there is a build
+# log that outlives the deployment and is readable by anyone who can read the repository.
+Write-Host "               az keyvault secret show --vault-name $($out.vaultName.value) --name operator-password --query value -o tsv"
