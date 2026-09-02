@@ -1,0 +1,10 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/config.json",
+      "/status.sample.json",
+      "*.{css,js,map,json,ico,png,svg,webp,woff,woff2}"
+    ]
+  }
+}
