@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -144,6 +145,30 @@ using (var scope = app.Services.CreateScope())
             .ConfigureAwait(false);
     }
 }
+
+// TLS terminates at the ingress, so the container itself is spoken to over plain HTTP on
+// 8080 and every request arrives claiming that scheme. Absolute URLs the API generates
+// inherit it: the Location header on a 201 came back as http://, which a strict client
+// refuses to follow and a lax one follows in the clear. The forwarded headers carry what the
+// caller actually used, and this is what makes the app read them.
+//
+// Nothing local can catch this. In Compose there is no proxy in front of the container, so
+// the scheme really is http and the header really is absent — the bug exists only where the
+// deployment does, which is why it survived to the first real environment.
+//
+// The known-network and known-proxy defaults trust loopback only, and the ingress is not
+// loopback, so they are cleared. That is safe precisely here: the container is reachable
+// only through that ingress, so there is no route by which an untrusted caller could set
+// these headers itself.
+var forwardedHeaders = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor,
+};
+// KnownIPNetworks, not KnownNetworks: the latter is obsolete in .NET 10 and, with warnings
+// as errors, using it is a build failure rather than a hint.
+forwardedHeaders.KnownIPNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
