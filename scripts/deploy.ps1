@@ -94,24 +94,41 @@ if (-not $SkipGrant) {
 Write-Step 'Running migrations'
 # Started and waited on. A failed migration has to stop the deployment rather than leave the
 # API to crash-loop against a schema that is half there.
-az containerapp job start `
+$started = az containerapp job start `
     --name $out.migrateJobName.value `
     --resource-group $ResourceGroup `
-    --output none
+    --output json | ConvertFrom-Json
 
+# Watch this execution by name. Reading [0] of the execution list is only correct while the
+# job has never run before: every previous attempt stays in that list, nothing promises the
+# newest is first, and a stale Failed read as the current one would abort a deploy that was
+# actually fine. It is right for exactly as long as it is never needed.
+$executionName = $started.name
+if (-not $executionName) { throw 'Could not determine which migration execution was started.' }
+Write-Host "    execution $executionName"
+
+# Waiting on terminal states rather than on a list of running ones: an execution that is
+# queued reports a status this script has never heard of, and treating unrecognised as
+# finished would call a job that had not started yet a failure.
 $deadline = (Get-Date).AddMinutes(10)
 do {
     Start-Sleep -Seconds 10
-    $execution = az containerapp job execution list `
+    $status = az containerapp job execution show `
         --name $out.migrateJobName.value `
         --resource-group $ResourceGroup `
-        --query '[0].{status:properties.status, name:name}' --output json | ConvertFrom-Json
-    Write-Host "    $($execution.status)"
-} while ($execution.status -in @('Running', 'Processing') -and (Get-Date) -lt $deadline)
+        --job-execution-name $executionName `
+        --query 'properties.status' --output tsv
+    Write-Host "    $status"
+} while ($status -notin @('Succeeded', 'Failed', 'Cancelled') -and (Get-Date) -lt $deadline)
 
-if ($execution.status -ne 'Succeeded') {
-    Write-Host "  FAIL  migration job ended as $($execution.status)" -ForegroundColor Red
-    az containerapp job logs show --name $out.migrateJobName.value --resource-group $ResourceGroup --container migrate --tail 50
+if ($status -ne 'Succeeded') {
+    Write-Host "  FAIL  migration job ended as $status" -ForegroundColor Red
+    az containerapp job logs show `
+        --name $out.migrateJobName.value `
+        --resource-group $ResourceGroup `
+        --container migrate `
+        --execution $executionName `
+        --tail 50
     exit 1
 }
 
