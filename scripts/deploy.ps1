@@ -84,6 +84,8 @@ Write-Host "    snapshot $($out.snapshotUrl.value)"
 if (-not $SkipGrant) {
     Write-Step 'Granting the workload identity access to the database'
     & (Join-Path $PSScriptRoot 'grant-database-access.ps1') `
+        -ResourceGroup $ResourceGroup `
+        -ServerName $out.sqlServerName.value `
         -ServerFqdn $out.sqlServerFqdn.value `
         -Database $out.sqlDatabaseName.value `
         -IdentityName $out.identityName.value
