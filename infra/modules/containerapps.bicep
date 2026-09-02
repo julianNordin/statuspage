@@ -226,6 +226,14 @@ resource migrate 'Microsoft.App/jobs@2025-01-01' = {
           name: 'migrate'
           image: migrateImage
           resources: { cpu: json('0.5'), memory: '1Gi' }
+          // AZURE_CLIENT_ID is not optional here and its absence is not obvious. With a
+          // user-assigned identity the credential chain cannot tell which identity to use
+          // and fails with "Unable to load the proper Managed Identity" — which reads like a
+          // permissions problem and is not one. The first real deployment failed exactly
+          // here, because this container had args and no environment at all.
+          env: [
+            { name: 'AZURE_CLIENT_ID', value: identityClientId }
+          ]
           args: ['--connection', sqlConnectionString]
         }
       ]
