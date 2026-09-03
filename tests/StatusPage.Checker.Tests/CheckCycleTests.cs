@@ -163,6 +163,25 @@ public class CheckCycleTests(CheckerFixture fixture)
     }
 
     [Fact]
+    public async Task A_deployment_with_no_configuration_checks_nothing_and_opens_no_connection()
+    {
+        // Deliberately no SeedAsync: this is the state every deployment starts in, before an
+        // operator has added anything, and it had no test at all. The first real environment
+        // ran this exact path fifteen times on its cron, reported success every time, and
+        // wrote nothing anywhere — which reads identically to a checker crashing on start-up.
+        // It is also the cheapest possible cycle and should stay that way.
+        fixture.Counter.Reset();
+
+        var result = await RunAsync(Healthy);
+
+        Assert.Equal(0, result.Probed);
+        Assert.Equal(0, result.Transitions);
+        Assert.Equal(0, result.IncidentsOpened);
+        Assert.False(result.TouchedDatabase);
+        Assert.Equal(0, fixture.Counter.Commands);
+    }
+
+    [Fact]
     public async Task A_transition_is_the_only_thing_that_reaches_the_database()
     {
         await SeedAsync(failuresToOpen: 2);

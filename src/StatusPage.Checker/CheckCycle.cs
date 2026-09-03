@@ -50,8 +50,13 @@ public sealed partial class CheckCycle(
         if (config is null || config.Components.Count == 0)
         {
             // No configuration written yet. Not an error: it is the state a deployment starts
-            // in, before an operator has added anything.
-            NothingToCheck(logger);
+            // in, before an operator has added anything. Said at Information rather than Debug
+            // because this is the only line a cycle on that path produces, and at Debug it
+            // produced none at all — fifteen scheduled runs in the first deployment reported
+            // success and wrote nothing anywhere, which is indistinguishable from a checker
+            // that crashed on start-up. Whether it found any configuration is exactly the
+            // thing worth knowing.
+            NothingToCheck(logger, config is null ? "absent" : "empty");
             return new CycleResult(0, 0, 0, false);
         }
 
@@ -254,8 +259,9 @@ public sealed partial class CheckCycle(
             cancellationToken).ConfigureAwait(false);
     }
 
-    [LoggerMessage(EventId = 3000, Level = LogLevel.Debug, Message = "No configuration to check")]
-    private static partial void NothingToCheck(ILogger logger);
+    [LoggerMessage(EventId = 3000, Level = LogLevel.Information,
+        Message = "Nothing to check: the configuration document is {State}")]
+    private static partial void NothingToCheck(ILogger logger, string state);
 
     [LoggerMessage(EventId = 3001, Level = LogLevel.Information,
         Message = "Checked {Probed}: {Transitions} transitions, {Opened} incidents, database touched: {Touched}")]
