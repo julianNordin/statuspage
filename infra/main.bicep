@@ -169,6 +169,7 @@ module apps 'modules/containerapps.bicep' = {
 // ---- outputs the deploy script and the smoke test read -------------------------------------
 
 output apiUrl string = apps.outputs.apiUrl
+output apiName string = apps.outputs.apiName
 output siteUrl string = siteOrigin
 output siteName string = staticSite.name
 output snapshotUrl string = storage.outputs.snapshotUrl

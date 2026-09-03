@@ -79,6 +79,19 @@ jobs:
       # It deploys the template, grants the workload identity a database user, runs the
       # migration job and waits on it, publishes the status page, and then smoke-tests the
       # result. Any of those failing fails the deployment.
+      #
+      # Pinned to the commit's own images rather than to latest, and this is the line that
+      # makes "the container CI built and tested is the one running in production" a checkable
+      # statement instead of a slogan. It also makes the deploy work at all: with a mutable tag
+      # the revision's image string never changes, so Container Apps has no reason to pull
+      # again and a new build simply does not roll. The tag matches what the CI images job
+      # publishes with docker/metadata-action's type=sha,format=long.
       - name: Deploy, migrate, publish and verify
         shell: pwsh
-        run: ./scripts/deploy.ps1 -ResourceGroup ${{ vars.AZURE_RESOURCE_GROUP || 'rg-statuspage' }}
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: >-
+          ./scripts/deploy.ps1
+          -ResourceGroup ${{ vars.AZURE_RESOURCE_GROUP || 'rg-statuspage' }}
+          -ImageRepository ghcr.io/${{ github.repository }}
+          -ImageTag "sha-$env:DEPLOY_SHA"

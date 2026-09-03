@@ -28,13 +28,28 @@
 .PARAMETER SkipSite
     Skip building and uploading the status page. The slowest step and the one least likely to
     have changed when re-running to fix something in the infrastructure.
+
+.PARAMETER ImageTag
+    Tag to deploy for all three images. Omit it and the template's default applies, which is
+    the mutable 'latest'.
+
+    CI passes the commit sha, and that is the case worth having. A deployment tracking 'latest'
+    cannot say which build is running: pushing a new image does not roll the app, because the
+    revision's image string has not changed and Container Apps has no reason to pull again. For
+    a project whose claim is that the container CI built and tested is the one running in
+    production, an artefact nobody can name does not support the claim.
+
+.PARAMETER ImageRepository
+    Where the images live, without the image name or tag.
 #>
 [CmdletBinding()]
 param(
     [string] $ResourceGroup = 'rg-statuspage',
     [string] $Location = 'swedencentral',
     [switch] $SkipGrant,
-    [switch] $SkipSite
+    [switch] $SkipSite,
+    [string] $ImageTag,
+    [string] $ImageRepository = 'ghcr.io/juliannordin/statuspage'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,6 +128,14 @@ $env:STATUSPAGE_ADMIN_NAME = $adminName
 $env:STATUSPAGE_JWT_SIGNING_KEY = $signingKey
 $env:STATUSPAGE_OPERATOR_PASSWORD = $operatorPassword
 
+if ($ImageTag) {
+    Write-Step "Pinning images to $ImageTag"
+    $env:STATUSPAGE_API_IMAGE = "$ImageRepository/api:$ImageTag"
+    $env:STATUSPAGE_CHECKER_IMAGE = "$ImageRepository/checker:$ImageTag"
+    $env:STATUSPAGE_MIGRATE_IMAGE = "$ImageRepository/migrate:$ImageTag"
+    Write-Host "    $($env:STATUSPAGE_API_IMAGE)"
+}
+
 Write-Step 'Deploying the template'
 $deployment = az deployment group create `
     --resource-group $ResourceGroup `
@@ -125,6 +148,19 @@ $out = $deployment.properties.outputs
 Write-Host "    api      $($out.apiUrl.value)"
 Write-Host "    site     $($out.siteUrl.value)"
 Write-Host "    snapshot $($out.snapshotUrl.value)"
+
+# Read back what is running rather than trusting that the parameter arrived. This is also the
+# only place the running artefact gets named out loud, which is the point of pinning a tag: a
+# deployment that cannot say which build it is serving cannot claim CI proved that build.
+$runningImage = az containerapp show `
+    --name $out.apiName.value `
+    --resource-group $ResourceGroup `
+    --query 'properties.template.containers[0].image' --output tsv
+Write-Host "    running  $runningImage"
+
+if ($ImageTag -and $runningImage -ne $env:STATUSPAGE_API_IMAGE) {
+    throw "asked for $($env:STATUSPAGE_API_IMAGE) and the app is running $runningImage"
+}
 
 if (-not $SkipGrant) {
     Write-Step 'Granting the workload identity access to the database'
