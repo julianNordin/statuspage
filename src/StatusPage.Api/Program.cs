@@ -12,6 +12,7 @@ using StatusPage.Api.Infrastructure;
 using StatusPage.Infrastructure;
 using StatusPage.Infrastructure.Queries;
 using StatusPage.Infrastructure.ReadModel;
+using StatusPage.Infrastructure.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,7 @@ builder.Services
 
 builder.Services.AddSingleton<TokenIssuer>();
 builder.Services.AddScoped<OperatorSeeder>();
+builder.Services.AddScoped<ComponentSeeder>();
 
 var jwt = builder.Configuration.GetSection(JwtOptions.Section).Get<JwtOptions>() ?? new JwtOptions();
 
@@ -143,6 +145,29 @@ using (var scope = app.Services.CreateScope())
             .GetRequiredService<OperatorSeeder>()
             .SeedAsync(seeds)
             .ConfigureAwait(false);
+    }
+
+    // A rebuilt environment with no components is a status page that watches nothing: the API
+    // never writes a configuration document, so the checker has nothing to do and never writes
+    // a snapshot, so the page renders an empty shell indefinitely. Every link in that chain
+    // behaves correctly and the result is useless, which is the least obvious kind of broken.
+    var componentSeeds = app.Configuration.GetSection("Components").Get<SeededComponent[]>() ?? [];
+    if (componentSeeds.Length > 0)
+    {
+        var added = await scope.ServiceProvider
+            .GetRequiredService<ComponentSeeder>()
+            .SeedAsync(componentSeeds)
+            .ConfigureAwait(false);
+
+        if (added > 0)
+        {
+            // The checker takes its work from the configuration document rather than the
+            // database, so seeding rows without projecting them would change nothing at all.
+            await scope.ServiceProvider
+                .GetRequiredService<ReadModelProjection>()
+                .WriteConfigAsync(app.Services.GetRequiredService<TimeProvider>().GetUtcNow())
+                .ConfigureAwait(false);
+        }
     }
 }
 

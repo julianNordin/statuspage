@@ -57,6 +57,32 @@ param operatorEmail string
 @description('Name shown beside incident updates posted by that operator.')
 param operatorDisplayName string
 
+@description('Components a fresh deployment starts with. Matched on slug and never updated afterwards, so an operator who retunes or deletes one is not argued with on the next restart. Change these to change what the page watches.')
+param seededComponents array = [
+  {
+    name: 'GitHub API'
+    slug: 'github-api'
+    targetUrl: 'https://api.github.com'
+    position: 0
+  }
+  {
+    name: 'NuGet'
+    slug: 'nuget'
+    targetUrl: 'https://api.nuget.org/v3/index.json'
+    position: 1
+  }
+]
+
+// Flattened into the numbered keys .NET configuration binds an array from. Written out here
+// rather than in the image so that what this deployment watches is a property of the
+// deployment, and changing it is a parameter rather than a rebuild.
+var seededComponentEnv = flatten(map(range(0, length(seededComponents)), i => [
+  { name: 'Components__${i}__Name', value: seededComponents[i].name }
+  { name: 'Components__${i}__Slug', value: seededComponents[i].slug }
+  { name: 'Components__${i}__TargetUrl', value: seededComponents[i].targetUrl }
+  { name: 'Components__${i}__Position', value: string(seededComponents[i].position) }
+]))
+
 var jwtIssuer = 'statuspage'
 var jwtAudience = 'statuspage-console'
 
@@ -156,7 +182,7 @@ resource api 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'Operators__0__Email', value: operatorEmail }
             { name: 'Operators__0__DisplayName', value: operatorDisplayName }
             { name: 'Operators__0__Password', secretRef: 'operator-password' }
-          ])
+          ], seededComponentEnv)
           probes: [
             {
               type: 'Readiness'
