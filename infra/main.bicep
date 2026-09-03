@@ -65,6 +65,12 @@ param registryServer string = ''
 @description('How often the checker runs.')
 param checkerCron string = '*/10 * * * *'
 
+@description('Monthly cost ceiling that triggers an alert. This deployment is designed to cost nothing, so any real number here is a smoke alarm rather than a budget.')
+param monthlyBudget int = 10
+
+@description('Addresses told when the budget trips. Empty notifies the subscription Owner role instead, which keeps mailboxes out of the template.')
+param budgetContactEmails array = []
+
 // Derived from the resource group's id, so a rebuild into the same group lands on the same
 // names and a rebuild into a different one does not collide.
 var suffix = take(uniqueString(resourceGroup().id), 8)
@@ -138,6 +144,17 @@ module vault 'modules/keyvault.bicep' = {
     jwtSigningKey: jwtSigningKey
     operatorPassword: operatorPassword
     workloadPrincipalId: identity.properties.principalId
+  }
+}
+
+// Scoped to this resource group rather than the subscription. A subscription budget would
+// need the whole template deployed at subscription scope for one resource, and this is the
+// more useful reading anyway: it says what the status page costs, not what everything costs.
+module budget 'modules/budget.bicep' = {
+  name: 'budget'
+  params: {
+    amount: monthlyBudget
+    contactEmails: budgetContactEmails
   }
 }
 
