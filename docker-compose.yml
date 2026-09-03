@@ -93,6 +93,18 @@ services:
       Operators__0__Email: "operator@example.com"
       Operators__0__DisplayName: "Sam Operator"
       Operators__0__Password: "Statuspage-Demo-1"
+      # The same two the template seeds, for the same reason: a stack that comes up with no
+      # components serves an empty page, and an empty page is indistinguishable from a broken
+      # one. These are real outbound calls, so the local checker needs the internet — which it
+      # needs anyway to check anything at all.
+      Components__0__Name: "GitHub API"
+      Components__0__Slug: "github-api"
+      Components__0__TargetUrl: "https://api.github.com"
+      Components__0__Position: "0"
+      Components__1__Name: "NuGet"
+      Components__1__Slug: "nuget"
+      Components__1__TargetUrl: "https://api.nuget.org/v3/index.json"
+      Components__1__Position: "1"
     ports:
       - "5080:8080"
     depends_on:
