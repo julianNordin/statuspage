@@ -199,4 +199,4 @@ database per subscription.
 - [x] 15 — CI: build, test, images to GHCR
 - [x] 16 — Azure, described in Bicep
 - [x] 17 — The deploy pipeline, with no stored credential
-- [ ] 18 — Ship: observability, cost guards, README
+- [x] 18 — Ship: observability, cost guards, README
