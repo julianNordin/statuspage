@@ -1,5 +1,7 @@
 # statuspage
 
+[![CI](https://github.com/julianNordin/statuspage/actions/workflows/ci.yml/badge.svg)](https://github.com/julianNordin/statuspage/actions/workflows/ci.yml)
+
 A status page for a handful of services: what is up, what is not, what happened when it was not,
 and how much of the last ninety days each one has been available.
 
@@ -48,6 +50,22 @@ Checker  (Container Apps Job, cron — separate image, same repo)
   ├── writes an interval to SQL ONLY on a state transition   ← rare, so SQL sleeps
   └── regenerates status.json ──► Blob
 ```
+
+**The public page has no runtime dependency on the API, or on the database it reports on.** For
+a status page that is not an optimisation, it is the correct architecture — the page keeps
+working when the thing it reports on does not. Measured against the deployed environment, from
+the open internet:
+
+| Request | Result |
+|---|---|
+| Public status page | **HTTP 200 in 0.33 s** |
+| API `/health`, cold | **HTTP 200 in 100.8 s** |
+
+About 300x faster, because the page never asks the API anything. It reads a snapshot the checker
+had written to blob storage minutes earlier, while the API — running at `minReplicas: 0` — had
+genuinely scaled to zero and had to start a container before it could answer at all. That gap is
+the whole reason the write model and the read model are separate, and it is why the URL a
+visitor opens has no cold start on it.
 
 **SQL is the authoritative log; blob storage is a derived read model.** Rebuilding the snapshot
 from the interval log is an admin operation, and it is tested.
