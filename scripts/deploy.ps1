@@ -130,6 +130,13 @@ $env:STATUSPAGE_OPERATOR_PASSWORD = $operatorPassword
 
 if ($ImageTag) {
     Write-Step "Pinning images to $ImageTag"
+
+    # The workflow derives this from github.repository, which keeps the owner's casing --
+    # julianNordin. A registry path is lowercase by specification, so that string is not a
+    # valid reference, even though ghcr.io itself happens to answer to it. Normalise here
+    # rather than in the caller: this script is the single implementation that a workstation
+    # and the workflow both go through, so the rule belongs where the reference is built.
+    $ImageRepository = $ImageRepository.ToLowerInvariant()
     $env:STATUSPAGE_API_IMAGE = "$ImageRepository/api:$ImageTag"
     $env:STATUSPAGE_CHECKER_IMAGE = "$ImageRepository/checker:$ImageTag"
     $env:STATUSPAGE_MIGRATE_IMAGE = "$ImageRepository/migrate:$ImageTag"
