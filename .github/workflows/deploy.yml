@@ -54,7 +54,7 @@ jobs:
       # workflow_run checks out the default branch by default, which is not necessarily the
       # commit CI ran against. Deploying anything other than the exact commit that was proved
       # would make the CI result meaningless.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
