@@ -3,7 +3,7 @@
 # ---- build -------------------------------------------------------------------------------
 # Restore before copying the rest of the source, so a change to a .cs file does not throw
 # away the NuGet layer. The project files are the only thing restore reads.
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 # .editorconfig is part of the build, not an editor preference. EnforceCodeStyleInBuild is
