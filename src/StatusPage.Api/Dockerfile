@@ -22,7 +22,7 @@ RUN dotnet publish src/StatusPage.Api/StatusPage.Api.csproj \
     --output /app
 
 # ---- runtime -----------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
 
 # The image ships with a non-root user. Running as root inside a container buys nothing here:
