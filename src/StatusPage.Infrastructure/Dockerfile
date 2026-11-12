@@ -32,7 +32,7 @@ RUN dotnet ef migrations bundle \
 # ---- runtime -----------------------------------------------------------------------------
 # The bundle is self-contained, so this needs no .NET at all. It still needs ICU, because
 # Microsoft.Data.SqlClient refuses to start in globalization-invariant mode.
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:11.0 AS runtime
 WORKDIR /app
 
 USER $APP_UID
