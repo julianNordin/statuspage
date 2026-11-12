@@ -21,7 +21,7 @@ RUN dotnet publish src/StatusPage.Checker/StatusPage.Checker.csproj \
 # ---- runtime -----------------------------------------------------------------------------
 # The runtime image, not aspnet: the checker serves nothing and listens on no port. It runs,
 # writes what changed, and exits.
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:11.0 AS runtime
 WORKDIR /app
 
 USER $APP_UID
